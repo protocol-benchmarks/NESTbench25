@@ -1,1 +1,1 @@
-# stochastic_thermo_benchmarks
+# protocol_design_benchmarks
