@@ -326,7 +326,6 @@ std::vector<double> r_values(n_traj);
 
 double op;
 double delta;
-double delta_zero=1e-4;
 mean_work=0.0;
 
 //record values of r(tf)
