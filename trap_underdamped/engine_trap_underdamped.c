@@ -8,14 +8,15 @@ static std::normal_distribution<double> normal_dist;  // global object
 //translation of an underdamped particle by a(n) harmonic trap
 //Compiles as C++ for I/O and stdlib compatibility, but uses mostly C-style logic
 
-//to compile as static library: g++ -c engine_trap_underdamped.c -o engine_trap_underdamped.o; ar rcs libengine_trap_underdamped.a engine_trap_underdamped.o
-//note that only the functions in engine_trap_underdamped.h are "exposed"
+//Build instructions (via Makefile):
+//  make standalone    # compiles as stand-alone executable 'sim' (requires uncommenting main())
+//  make library       # compiles as static library 'libengine_trap_underdamped.a'
 
-//external code must use the header #include "engine_trap_underdamped.h"
-//compile your program with g++ your_program.c -L. -lengine_trap_underdamped -o your_program
-
-//to compile as stand-alone code, restore main function (see below), and compile as e.g.
-//g++ -Wall -o sim engine_trap_underdamped.c -lm -O
+//Note:
+//  - Only functions declared in engine_trap_underdamped.h are exposed from the library
+//  - External code should include the header: #include "engine_trap_underdamped.h"
+//  - To link against the library in your program:
+//      g++ your_program.c -L. -lengine_trap_underdamped -o your_program
 
 
 #include <cmath>
@@ -44,6 +45,7 @@ static char st[256];
 static const double pi=4.0*atan(1.0);
 
 //model parameters
+//lengths in nm
 static double eff_0=1090; //in Hz
 static double quality=7.0;
 static double omega_0=(2.0*pi*eff_0)/(1e6); //in reciprocal microseconds
@@ -51,7 +53,7 @@ static double cycle_time=1e6/eff_0; //1/f_0, in microseconds
 
 //time parameters (microseconds)
 static double tau;
-static double timestep=0.1;
+static double timestep=0.01; // in microseconds
 
 static const int number_of_protocol_timepoints=1000;
 
