@@ -5,17 +5,18 @@ static std::mt19937_64 rng_engine;
 static std::uniform_real_distribution<double> uniform_dist(0.0, 1.0);
 static std::normal_distribution<double> normal_dist;
 
-//translation of an overdamped particle by a(n) harmonic trap
+//ising model undergoing state change
 //Compiles as C++ for I/O and stdlib compatibility, but uses mostly C-style logic
 
-//to compile as static library: g++ -c engine_ising.c -o engine_ising.o; ar rcs libengine_ising.a engine_ising.o
-//note that only the functions in engine_ising.h are "exposed"
+//Build instructions (via Makefile):
+//  make standalone    # compiles as stand-alone executable 'sim' (requires uncommenting main())
+//  make library       # compiles as static library 'libengine_ising.a'
 
-//external code must use the header #include "engine_ising.h"
-//compile your program with g++ your_program.c -L. -lengine_ising -o your_program
-
-//to compile as stand-alone code, restore main function (see below), and compile as e.g.
-//g++ -Wall -o sim engine_ising.c -lm -O
+//Note:
+//  - Only functions declared in engine_ising.h are exposed from the library
+//  - External code should include the header: #include "engine_ising.h"
+//  - To link against the library in your program:
+//      g++ your_program.c -L. -lengine_ising -o your_program
 
 #include <cmath>
 #include <ctime>
