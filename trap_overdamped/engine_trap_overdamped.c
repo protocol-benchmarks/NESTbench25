@@ -8,14 +8,15 @@ static std::normal_distribution<double> normal_dist;  // global object
 //translation of an overdamped particle by a(n) harmonic trap
 //Compiles as C++ for I/O and stdlib compatibility, but uses mostly C-style logic
 
-//to compile as static library: g++ -c engine_trap_overdamped.c -o engine_trap_overdamped.o; ar rcs libengine_trap_overdamped.a engine_trap_overdamped.o
-//note that only the functions in engine_trap_overdamped.h are "exposed"
+//Build instructions (via Makefile):
+//  make standalone    # compiles as stand-alone executable 'sim' (requires uncommenting main())
+//  make library       # compiles as static library 'libengine_trap_overdamped.a'
 
-//external code must use the header #include "engine_trap_overdamped.h"
-//compile your program with g++ your_program.c -L. -lengine_trap_overdamped -o your_program
-
-//to compile as stand-alone code, restore main function (see below), and compile as e.g.
-//g++ -Wall -o sim engine_trap_overdamped.c -lm -O
+//Note:
+//  - Only functions declared in engine_trap_overdamped.h are exposed from the library
+//  - External code should include the header: #include "engine_trap_overdamped.h"
+//  - To link against the library in your program:
+//      g++ your_program.c -L. -lengine_trap_overdamped -o your_program
 
 #include <cmath>
 #include <ctime>
