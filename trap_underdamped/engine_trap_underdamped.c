@@ -18,6 +18,16 @@ static std::normal_distribution<double> normal_dist;  // global object
 //  - To link against the library in your program:
 //      g++ your_program.c -L. -lengine_trap_underdamped -o your_program
 
+// NOTE ON INDENTATION:
+// This file uses minimal or no indentation as a matter of personal preference
+// If you'd prefer conventional formatting, most editors can reindent automatically:
+//   - clang-format:   clang-format -i engine_trap_underdamped.c
+//   - astyle:         astyle --style=kr --indent=spaces=4 engine_trap_underdamped.c
+//   - VS Code:        Right-click → Format Document
+//   - Emacs:          M-x indent-region
+//   - Vim:            gg=G
+//
+// Feel free to reindent locally as needed.
 
 #include <cmath>
 #include <ctime>
