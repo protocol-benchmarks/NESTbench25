@@ -8,14 +8,15 @@ static std::normal_distribution<double> normal_dist;  // global object
 //information erasure using an underdamped oscillator
 //Compiles as C++ for I/O and stdlib compatibility, but uses mostly C-style logic
 
-//to compile as static library: g++ -c engine_erasure.c -o engine_erasure.o; ar rcs libengine_erasure.a engine_erasure.o
-//note that only the functions in engine_erasure.h are "exposed"
+//Build instructions (via Makefile):
+//  make standalone    # compiles as stand-alone executable 'sim' (requires uncommenting main())
+//  make library       # compiles as static library 'libengine_erasure.a'
 
-//external code must use the header #include "engine_erasure.h"
-//compile your program with g++ your_program.c -L. -lengine_erasure -o your_program
-
-//to compile as stand-alone code, restore main function (see below), and compile as e.g.
-//g++ -Wall -o sim engine_erasure.c -lm -O
+//Note:
+//  - Only functions declared in engine_erasure.h are exposed from the library
+//  - External code should include the header: #include "engine_erasure.h"
+//  - To link against the library in your program:
+//      g++ your_program.c -L. -lengine_erasure -o your_program
 
 #include <cmath>
 #include <ctime>
