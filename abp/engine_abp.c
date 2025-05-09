@@ -19,10 +19,10 @@ static std::normal_distribution<double> normal_dist;  // global object
 //      g++ your_program.c -L. -lengine_abp -o your_program
 
 // NOTE ON INDENTATION:
-// This file uses minimal or no indentation for clarity in my own workflow.
+// This file uses minimal or no indentation as a matter of personal preference
 // If you'd prefer conventional formatting, most editors can reindent automatically:
-//   - clang-format:   clang-format -i engine_trap_overdamped.c
-//   - astyle:         astyle --style=kr --indent=spaces=4 engine_trap_overdamped.c
+//   - clang-format:   clang-format -i engine_abp.c
+//   - astyle:         astyle --style=kr --indent=spaces=4 engine_abp.c
 //   - VS Code:        Right-click → Format Document
 //   - Emacs:          M-x indent-region
 //   - Vim:            gg=G
