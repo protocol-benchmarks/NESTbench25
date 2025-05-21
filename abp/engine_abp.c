@@ -56,7 +56,7 @@ static const double pi=4.0*atan(1.0);
 
 //time parameters (microseconds)
 static double tau;
-static double timestep=0.001;
+static double timestep=0.0004;
 
 static const int number_of_protocol_timepoints=1000;
 
@@ -338,7 +338,6 @@ std::vector<double> r_values(n_traj);
 
 double op;
 double delta;
-double delta_zero=1e-4;
 mean_work=0.0;
 
 //record values of r(tf)
