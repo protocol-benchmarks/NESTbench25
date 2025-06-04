@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob
 import os
-import imageio
+import imageio.v2 as imageio
 from matplotlib.colors import ListedColormap
 
 # Find all lattice files
