@@ -1,243 +1,111 @@
-# Ising Model Simulation
+# Ising Model Benchmark for Protocol Design
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+This code implements a benchmark system for testing methods of protocol optimization in nonequilibrium statistical mechanics. The system consists of a 2D Ising model undergoing state change, with the objective of minimizing entropy production.
 
-A high-performance implementation of the Ising model for studying phase transitions in ferromagnetic materials. This project provides both a standalone executable and a library that can be integrated into other applications.
+## Problem Description
 
-## Table of Contents
+We consider the 2D Ising model on a square lattice of $N=32^2$ sites with periodic boundary conditions. On each site $i$ is a binary spin $S_i = \pm 1$. The lattice energy function is:
 
-- [Ising Model Simulation](#ising-model-simulation)
-  - [Table of Contents](#table-of-contents)
-  - [Overview](#overview)
-  - [Features](#features)
-  - [Directory Structure](#directory-structure)
-  - [Requirements](#requirements)
-    - [Core Requirements](#core-requirements)
-    - [Visualization Requirements (Python)](#visualization-requirements-python)
-  - [Installation](#installation)
-    - [Quick Installation](#quick-installation)
-    - [Manual Installation](#manual-installation)
-  - [Usage](#usage)
-    - [Standalone Executable](#standalone-executable)
-    - [Library Integration](#library-integration)
-    - [Visualization](#visualization)
-    - [Examples](#examples)
-    - [Testing](#testing)
-  - [Protocol Files](#protocol-files)
-  - [Output Files](#output-files)
-  - [Contributing](#contributing)
-  - [License](#license)
+$$E = -J\sum_{\langle ij \rangle} S_i S_j -h\sum_{i=1}^N S_i$$
 
-## Overview
+where $J=1$ is the Ising coupling, $h$ is the magnetic field, and the first sum runs over all nearest-neighbor bonds.
 
-The Ising model is a mathematical model of ferromagnetism in statistical mechanics. This implementation simulates a 2D lattice of spins that can be in one of two states (+1 or -1) and interact with their nearest neighbors. The simulation can be used to study phase transitions and critical phenomena.
+The model evolves by Glauber Monte Carlo dynamics. At each time step, a lattice site is chosen and a spin flip is proposed, which is accepted with probability:
 
-## Features
+$$P_{\text{Glauber}}(\Delta E)=\left( 1+ \exp(\Delta E/T) \right)^{-1}$$
 
-- **High-Performance C/C++ Implementation**: Efficient simulation engine optimized for speed
-- **Configurable Protocols**: Customize simulation parameters through protocol files
-- **Visualization Tools**: Generate snapshots and animations of the simulation
-- **Library Integration**: Use as a standalone executable or integrate as a library
-- **Comprehensive Examples**: Learn how to use the library through examples
-- **Test Suite**: Verify functionality through automated tests
+where $\Delta E$ is the energy change under the proposed move.
 
-## Directory Structure
+## Optimization Objective
 
-```
-ising/
-├── src/                      # Source code directory
-│   ├── engine/               # Core simulation engine
-│   │   ├── engine_ising.c    # Main simulation code
-│   │   ├── engine_ising.h    # Header file with API definitions
-│   │   └── main.cpp          # Standalone executable entry point
-│   └── visualization/        # Visualization tools
-│       ├── movie.py          # Script to generate images and animations
-│       └── movie_example.py  # Example visualization with synthetic data
-├── data/                     # Data files directory
-│   ├── protocols/            # Simulation protocols
-│   │   ├── default_protocol.dat            # Default parameters
-│   │   └── input_control_parameters_learned.dat  # Optimized parameters
-│   └── output/               # Directory for simulation outputs
-├── build/                    # Build artifacts (generated)
-├── docs/                     # Documentation
-│   └── README.md             # Detailed project documentation
-├── examples/                 # Example usage of the library/executable
-│   ├── simple_simulation.c   # Simple example of library usage
-│   └── Makefile              # Build system for examples
-├── tests/                    # Test cases
-│   ├── test_basic.c          # Basic functionality tests
-│   └── Makefile              # Build system for tests
-├── venv/                     # Python virtual environment (generated)
-└── Makefile                  # Main build system
-```
+The control parameters of this problem are temperature and magnetic field, $\mathbf{c}(t) = (T(t), h(t))$. The aim is to change these parameters from the values $\mathbf{c}(0) = (0.7,-1)$ to the values $\mathbf{c}(t_f) = (0.7,1)$, in $t_f=100 N$ Monte Carlo steps (100 Monte Carlo sweeps). 
 
-## Requirements
+The order parameter to be minimized is the mean entropy production $\langle\sigma\rangle$, where the entropy produced over the course of a simulation is:
 
-### Core Requirements
-- C++ compiler with C++11 support (g++ or clang++)
-- GNU Make
+$$\sigma=E_f/T_f - E_0/T_0 - \sum_{k=1}^{t_f} \Delta E_k/T_k$$
 
-### Visualization Requirements (Python)
-- Python 3.6+
-- matplotlib
-- numpy
-- imageio with ffmpeg support
+Here $E_f$ and $E_0$ are the final and initial energies of the system, and $\Delta E_k$ and $T_k$ are the energy change and temperature at step $k$ of the simulation.
 
-## Installation
+## Default Protocol
 
-### Quick Installation
+The default protocol is based on the work of Rotskoff and Crooks (2015), which is the optimal protocol within the near-equilibrium approximation. This protocol avoids the first-order phase transition line and the critical point of the Ising model.
 
-For a quick setup, use the provided installation script:
+## Code Structure
 
-```bash
-git clone https://github.com/yourusername/ising-model.git
-cd ising-model
-./setup.sh
-```
-
-This script will:
-1. Create a Python virtual environment
-2. Install required Python packages
-3. Create necessary directories
-4. Build the standalone executable
-
-### Manual Installation
-
-If you prefer to install manually:
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/ising-model.git
-   cd ising-model
-   ```
-
-2. Set up Python environment for visualization:
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
-   ```
-
-3. Build the project:
-   ```bash
-   make standalone  # For standalone executable
-   # OR
-   make library     # For library integration
-   ```
+The code consists of:
+- `engine_ising.c`: Main simulation code
+- `engine_ising.h`: Header file with API definitions
+- `movie.py`: Visualization script to generate snapshots and animations
+- `default_protocol.dat`: Default protocol parameters
+- `input_control_parameters_learned.dat`: Example of an optimized protocol
 
 ## Usage
 
-### Standalone Executable
+### Building the Code
 
-First, ensure the project is built. If you haven't already (e.g., via `./setup.sh`), build the standalone executable from the `ising` directory:
+The code can be built either as a standalone executable or as a library for integration with optimization algorithms:
 
 ```bash
+# Build as standalone executable
 make standalone
-```
 
-To run the simulation:
-
-1.  **Execute the simulation program:**
-    ```bash
-    ./build/sim
-    ```
-    This will:
-    - Load the default protocol from `data/protocols/default_protocol.dat`.
-    - Run the simulation.
-    - Calculate the order parameter.
-    - Attempt to generate visualization files (`output_picture.pdf`, `output_movie.mp4`) in `data/output/` by calling a Python script.
-
-2.  **Manual Visualization (if step 1 did not produce visualization files):**
-    If the visualization files were not created (e.g., due to the Python environment not being accessible to the compiled program), you can generate them manually. From the `ising` directory:
-    ```bash
-    source venv/bin/activate  # Activate the Python virtual environment
-    python src/visualization/movie.py
-    deactivate              # Optional: deactivate the virtual environment
-    ```
-    This will create `output_picture.pdf` and `output_movie.mp4` in the `data/output/` directory.
-
-### Library Integration
-
-Build the library:
-
-```bash
+# Build as library
 make library
 ```
 
-This creates `build/libengine_ising.a` which you can link with your own projects.
+### Running the Simulation
 
-Include the header in your code:
-
-```c
-#include "path/to/engine_ising.h"
-```
-
-Link with the library:
+To run the simulation with the default protocol:
 
 ```bash
-g++ -o your_program your_program.c -L/path/to/build -lengine_ising -lm
+./sim
 ```
 
-### Visualization
+This will:
+1. Load the default protocol
+2. Run the simulation for 100 Monte Carlo sweeps
+3. Calculate the entropy production
+4. Generate visualization files (`output_picture.pdf`, `output_movie.mp4`)
 
-The `./build/sim` executable attempts to automatically generate visualization outputs (`output_picture.pdf` and `output_movie.mp4`) in `data/output/` after a simulation completes.
+### Using a Custom Protocol
 
-If this automatic step fails (e.g., Python dependencies like `imageio` are not found by the C++ program's environment), you can generate the visualizations manually from the `ising` directory:
+To use a custom protocol:
+1. Create a file named `input_control_parameters.dat` with dimensions $2 \times 1000$, where each row contains the temperature and magnetic field values at 1000 equally spaced time points.
+2. Run the simulation as above.
 
-```bash
-source venv/bin/activate  # Ensure the virtual environment is active
-python src/visualization/movie.py
-deactivate              # Optional: deactivate the virtual environment
-```
+### API Functions
 
-This script uses the data generated by `./build/sim` to create:
-- `output_picture.pdf`: A grid of snapshots from the simulation.
-- `output_movie.mp4`: An animation of the simulation.
+The following functions are exposed in the library:
 
-### Examples
+- `final_answer()`: Calculates the order parameter (entropy production) over 100 samples of 10^3 trajectories
+- `load_protocol()`: Reads protocol from `input_control_parameters.dat`
+- `load_default_protocol()`: Loads the default protocol
+- `visualize_protocol()`: Generates visualizations of the current protocol
+- `calculate_order_parameter(n_traj)`: Computes order parameter over n_traj trajectories
 
-The `examples/` directory contains sample code showing how to use the library:
-
-```bash
-cd examples
-make
-./simple_simulation
-```
-
-### Testing
-
-Run the test suite to verify functionality:
-
-```bash
-cd tests
-make run
-```
-
-## Protocol Files
-
-The simulation behavior is controlled by protocol files:
-
-- `data/protocols/default_protocol.dat`: Default simulation parameters
-- `data/protocols/input_control_parameters_learned.dat`: Optimized parameters
-
-Each protocol file contains rows with two columns:
-1. Time parameter (0.0 to 1.0)
-2. Control parameter value
-
-## Output Files
+## Visualization
 
 The simulation generates several output files:
 
-- `report_control_parameters_*.dat`: Control parameter values over time
 - `report_lattice_time_*.dat`: Lattice state snapshots at different times
 - `report_entprod_histogram.dat`: Entropy production histogram
-- `output_picture.pdf`: Visualization of lattice snapshots
+- `output_picture.pdf`: Grid of lattice snapshots showing system evolution
 - `output_movie.mp4`: Animation of the simulation
 
-## Contributing
+## Protocol Learning
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+This benchmark is designed to test methods for optimizing time-dependent protocols. The file `input_control_parameters_learned.dat` contains an example of a protocol learned via neuroevolution that produces significantly less entropy than the default protocol.
 
-## License
+For this system, small perturbations about a simple protocol produce little change in the microscopic state because at $T=0.7$ the energy barrier to flipping single spins is more than 10 (in units of $k_BT$). Effective optimization strategies include starting with large random perturbations or using informed initial guesses.
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+## Requirements
+
+- C++ compiler with C++11 support
+- Python 3.6+ with numpy, matplotlib, and imageio (for visualization)
+- GNU Make
+
+## References
+
+This benchmark is based on the work described in:
+- Rotskoff, G. M., & Crooks, G. E. (2015). Optimal control in nonequilibrium systems: Dynamic Riemannian geometry of the Ising model. Physical Review E, 92(6), 060102.
+- Gingrich, T. R., Rotskoff, G. M., Vaikuntanathan, S., & Geissler, P. L. (2016). Efficiency and large deviations in time-asymmetric stochastic heat engines. New Journal of Physics, 18(2), 023007.
