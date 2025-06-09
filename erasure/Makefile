@@ -2,7 +2,7 @@
 #
 # USAGE:
 #   make standalone    # Cleans and compiles as stand-alone executable 'sim'
-#   make library       # Cleans and compiles as static library 'libengine_erasure.a'
+#   make library       # Cleans and compiles as static library 'libengine_ising.a'
 #
 # NOTES:
 #   - Automatically removes old object, library, and executable files before building
