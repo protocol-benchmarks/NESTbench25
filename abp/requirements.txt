@@ -1,0 +1,14 @@
+# Python requirements for Ising Model Simulation
+# Usage: pip install -r requirements.txt
+
+# Core visualization libraries
+matplotlib>=3.5.0
+numpy>=1.20.0
+
+# Image processing and animation
+imageio>=2.19.0
+imageio-ffmpeg>=0.4.7
+
+# Optional dependencies for improved performance
+pillow>=9.0.0  # For image processing
+psutil>=5.9.0  # For system monitoring during heavy computations
