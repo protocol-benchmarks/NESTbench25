@@ -108,9 +108,3 @@ The learned protocol typically involves an initial input of work as the trap par
 - C++ compiler with C++11 support
 - Python 3.6+ with numpy, matplotlib, and imageio (for visualization)
 - GNU Make
-
-## References
-
-This benchmark is based on the work described in:
-- Baldovin, M., Vulpiani, A., Puglisi, A., & Baiesi, M. (2023). Control of active particles in a harmonic trap. Physical Review E, 107(5), 054607.
-- Casert, C., Engel, M., Tamblyn, I., & Whitelam, S. (2024). Learning control protocols for active Brownian particles.

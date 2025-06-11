@@ -118,9 +118,3 @@ The challenge in this system is to approximate the effect of delta function impu
 - C++ compiler with C++11 support
 - Python 3.6+ with numpy, matplotlib, and imageio (for visualization)
 - GNU Make
-
-## References
-
-This benchmark is based on the work described in:
-- Gomez-Marin, A., Schmiedl, T., & Seifert, U. (2008). Optimal protocols for minimal work processes in underdamped stochastic thermodynamics. The Journal of Chemical Physics, 129(2), 024114.
-- Schmiedl, T., & Seifert, U. (2007). Optimal finite-time processes in stochastic thermodynamics. Physical Review Letters, 98(10), 108301.

@@ -104,8 +104,3 @@ For this system, small perturbations about a simple protocol produce little chan
 - Python 3.6+ with numpy, matplotlib, and imageio (for visualization)
 - GNU Make
 
-## References
-
-This benchmark is based on the work described in:
-- Rotskoff, G. M., & Crooks, G. E. (2015). Optimal control in nonequilibrium systems: Dynamic Riemannian geometry of the Ising model. Physical Review E, 92(6), 060102.
-- Gingrich, T. R., Rotskoff, G. M., Vaikuntanathan, S., & Geissler, P. L. (2016). Efficiency and large deviations in time-asymmetric stochastic heat engines. New Journal of Physics, 18(2), 023007.
