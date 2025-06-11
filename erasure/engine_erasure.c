@@ -139,9 +139,11 @@ rng_engine.seed(static_cast<uint64_t>(time(NULL)));
 
 }
 
-//restore main to compile as stand-alone code
+//
+// MAIN_BLOCK_START
+// To compile as a library, comment out everything between here, and DOWN THERE vvv
+//
 
-/*
 int main(void){
 
 initialize();
@@ -151,7 +153,12 @@ visualize_protocol();
 return 0;
 
 }
-*/
+
+//
+// To compile as a library, comment out everything betweehn here, and UP THERE ^^^
+// MAIN_BLOCK_END
+//
+
 
 double gauss_rv(double sigma){
 
