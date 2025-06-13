@@ -1,8 +1,8 @@
-# Makefile for engine_trap_underdamped.c
+# Makefile for engine_ising.c
 #
 # USAGE:
 #   make standalone    # Cleans and compiles as stand-alone executable 'sim'
-#   make library       # Cleans and compiles as static library 'libengine_trap_underdamped.a'
+#   make library       # Cleans and compiles as static library 'libengine_ising.a'
 #
 # NOTES:
 #   - Automatically removes old object, library, and executable files before building
@@ -13,9 +13,9 @@ CXX = g++
 CXXFLAGS = -Wall -O
 AR = ar
 ARFLAGS = rcs
-LIBNAME = libengine_trap_underdamped.a
-SRC = engine_trap_underdamped.c
-OBJ = engine_trap_underdamped.o
+LIBNAME = libengine_ising.a
+SRC = engine_ising.cpp
+OBJ = engine_ising.o
 EXEC = sim
 
 standalone:

@@ -1,8 +1,8 @@
-# Makefile for engine_ising.c
+# Makefile for engine_abp.c
 #
 # USAGE:
 #   make standalone    # Cleans and compiles as stand-alone executable 'sim'
-#   make library       # Cleans and compiles as static library 'libengine_ising.a'
+#   make library       # Cleans and compiles as static library 'libengine_abp.a'
 #
 # NOTES:
 #   - Automatically removes old object, library, and executable files before building
@@ -13,9 +13,9 @@ CXX = g++
 CXXFLAGS = -Wall -O
 AR = ar
 ARFLAGS = rcs
-LIBNAME = libengine_ising.a
-SRC = engine_ising.c
-OBJ = engine_ising.o
+LIBNAME = libengine_abp.a
+SRC = engine_abp.cpp
+OBJ = engine_abp.o
 EXEC = sim
 
 standalone:

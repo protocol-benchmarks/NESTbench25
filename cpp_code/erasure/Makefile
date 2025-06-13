@@ -14,7 +14,7 @@ CXXFLAGS = -Wall -O
 AR = ar
 ARFLAGS = rcs
 LIBNAME = libengine_erasure.a
-SRC = engine_erasure.c
+SRC = engine_erasure.cpp
 OBJ = engine_erasure.o
 EXEC = sim
 
