@@ -1,0 +1,6 @@
+# Python requirements
+# Usage: pip install -r requirements.txt
+
+matplotlib>=3.10.3
+numpy>=2.3.0
+torch>=2.7.1
