@@ -58,14 +58,6 @@ This benchmark is designed to test methods for optimizing time-dependent protoco
 
 For this system, the challenge is to manipulate the potential in a way that effectively transfers the particle to the left well without imparting excessive kinetic energy that would allow it to escape. The system includes a quiescent period of duration $2t_f$ after the protocol has run to check the stability of the memory.
 
-## System Description
-
-The system simulates an underdamped Langevin equation with parameters based on a mechanical oscillator with frequency f₀ = 1090 Hz and quality factor Q = 7. The potential is defined as:
-
-$U(x,t) = 0.5*(x - \text{sign}(x-c₀(t))*c₁(t))² + c₀(t)*c₁(t)*(\text{sign}(x-c₀(t)) + \text{sign}(c₀(t)))$
-
-where $c₀(t)$ and $c₁(t)$ are time-dependent control parameters that can be optimized.
-
 ## Requirements
 
 - Python 3.6+ with:
