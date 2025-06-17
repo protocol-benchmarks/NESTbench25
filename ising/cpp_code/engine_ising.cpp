@@ -161,7 +161,7 @@ return 0;
 }
 
 //
-// To compile as a library, comment out everything betweehn here, and UP THERE ^^^
+// To compile as a library, comment out everything between here, and UP THERE ^^^
 // MAIN_BLOCK_END
 //
 
