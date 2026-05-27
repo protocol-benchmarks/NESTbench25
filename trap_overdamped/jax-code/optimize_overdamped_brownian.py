@@ -80,7 +80,7 @@ for j in tqdm.trange(opt_steps,position=0):
 all_works = tree_util.tree_map(lambda *args: jnp.stack(args), *all_works)
 print("final average dissipated work: ", onp.mean(all_works[-1]))
 
-savedir = 'your_directory_here_'
+savedir = './'  # output directory for saved files; change to a different path if desired
 afile = open(savedir+'schedules.pkl', 'wb')
 pickle.dump(schedules, afile)
 afile.close()
@@ -104,17 +104,18 @@ ax0.set_ylim(0.,14.)
 trap_fn = utils.make_trap_fxn(init_schedule,simulation_steps,r0_init,r0_final)
 init_sched = trap_fn(jnp.arange(simulation_steps))
 ax1.plot(jnp.arange(simulation_steps), init_sched, lw=5, label='Initial Guess')
-plot_every = 10
+checkpoint_steps = {9, 49}  # j values (0-indexed); displayed as "Step 10", "Step 50"
+final_j = schedules[-1][0]
 for j, sched in schedules:
-  if((j+1)%plot_every == 0):
+  if j in checkpoint_steps and j != final_j:
     trap_fn = utils.make_trap_fxn(sched,simulation_steps,r0_init,r0_final)
     full_sched = trap_fn(jnp.arange(simulation_steps))
-    ax1.plot(jnp.arange(simulation_steps), full_sched,lw=5, label=f'Step {j+1}')
+    ax1.plot(jnp.arange(simulation_steps), full_sched, lw=5, label=f'Step {j+1}')
 
-#plot final:
 j, sched = schedules[-1]
 trap_fn = utils.make_trap_fxn(sched,simulation_steps,r0_init,r0_final)
 full_sched = trap_fn(jnp.arange(simulation_steps))
+ax1.plot(jnp.arange(simulation_steps), full_sched, lw=5, label='Final')
 
 #exact solution from Schmiedl & Seifert 2007:
 lambda_t = utils.make_trap_fxn_theoretical(dt, simulation_steps, end_time, r0_init, r0_final)
@@ -125,15 +126,14 @@ ax1.plot(jnp.arange(simulation_steps), trap, '--',lw=5, label='Theory')
 
 
 
-ax1.legend(fontsize=labelfont)#
+ax1.legend(fontsize=14)
 ax1.set_title('Schedule evolution')
 ax1.tick_params(axis='x', labelsize=tickfont)
 ax1.tick_params(axis='y', labelsize=tickfont)
 ax1.set_xlabel("Time (s)",fontsize=labelfont)
 ax1.set_ylabel("Trap displacement (nm)",fontsize=labelfont)
-plt.show()
 
-###optional: create animation of particle distribution evolving under final protocol###
+###create animation of particle distribution evolving under final protocol###
 anim = animate.create_histogram_animation(
     summaries=summaries,
     schedules=schedules,
@@ -146,6 +146,8 @@ anim = animate.create_histogram_animation(
     r0_final=r0_final,
     trap_stiffness=trap_stiffness,
     savedir=savedir,
-    fps=30,
+    fps=15,
     skip_steps=10  # Adjust this to control animation speed/size
 )
+
+plt.show()

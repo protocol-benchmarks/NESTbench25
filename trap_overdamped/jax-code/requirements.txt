@@ -1,0 +1,9 @@
+jax
+jaxlib
+jax-md
+optax
+numpy
+matplotlib
+tqdm
+pandas
+imageio-ffmpeg
