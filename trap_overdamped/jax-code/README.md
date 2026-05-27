@@ -8,7 +8,7 @@ This directory contains a JAX/JAX-MD implementation that learns the minimum-work
 pip install -r requirements.txt
 ```
 
-**Optional:** `ffmpeg` is required to save animations as MP4. If it is not installed, the animation falls back to GIF format (requires Pillow, which is included with matplotlib).
+`ffmpeg`, required to produce the animation, is bundled via `imageio-ffmpeg` and installed automatically with the requirements above — no separate system install needed.
 
 ## Files
 
@@ -16,7 +16,7 @@ pip install -r requirements.txt
 |------|-------------|
 | `optimize_overdamped_brownian.py` | Main script: optimizes the protocol and plots results |
 | `utils.py` | Simulation engine and gradient estimation utilities |
-| `make_animation.py` | Creates a histogram animation of the particle distribution |
+| `make_animation.py` | Creates an animation of the optimal protocol dragging particle distributions and cumulative work over the course of the simulation|
 | `requirements.txt` | Python package dependencies |
 
 ## Usage
@@ -45,7 +45,7 @@ After running, the script produces:
 1. **Terminal output:** the final mean dissipated work averaged over the last batch of trajectories.
 2. **`schedules.pkl`** and **`works.pkl`**: the full optimization trajectory (protocol parameters and work values at each step).
 3. **A two-panel plot** showing (left) convergence of mean work vs. optimization step and (right) the evolution of the learned protocol against the analytical Schmiedl-Seifert solution.
-4. **`particle_animation.mp4`** (or `.gif` if ffmpeg is unavailable): histogram animation of the particle position distribution evolving in time under the final learned protocol.
+4. **`particle_animation.mp4`**: two-panel animation showing (left) an ensemble of particle positions and the moving trap potential and (right) mean cumulative work vs. time compared to the theoretical optimum.
 
 ## Optimal Protocol
 
