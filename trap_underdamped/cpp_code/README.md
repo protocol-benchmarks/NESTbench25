@@ -45,11 +45,12 @@ To use a custom protocol:
 
 The following functions are exposed in the library:
 
-- `final_answer()`: Calculates the order parameter (mean work) over 100 samples of 10^4 trajectories
+- `final_answer()`: Calculates the order parameter (mean work) and the mean heat over 100 samples of 10^4 trajectories
 - `load_protocol()`: Reads protocol from `input_control_parameters.dat`
 - `load_default_protocol()`: Loads the optimal protocol
 - `visualize_protocol()`: Generates visualizations of the current protocol
 - `calculate_order_parameter(n_traj)`: Computes order parameter over n_traj trajectories
+- `calculate_order_parameter_heat(n_traj)`: As above, but returns the mean heat, allowing heat to be used as the optimization objective
 
 ## Visualization
 

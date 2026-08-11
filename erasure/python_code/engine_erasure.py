@@ -236,6 +236,8 @@ def run_protocol(protocol, number_of_trajectories, visualize=False):
         energy_new_params = potential(positions, protocol[i])
         work += energy_new_params - potential(positions,protocol[i-1])
 
+        # Current energy (potential plus kinetic; mass m = kT/(sigma_0*omega_0)^2) before update
+        old_energy = energy_new_params + 0.5 * velocities**2 / (omega_0*omega_0)
 
         # Update positions using Langevin dynamics
         # dx = -∇U(x,λ)dt + √(2dt)·η, where η is Gaussian white noise
@@ -245,9 +247,8 @@ def run_protocol(protocol, number_of_trajectories, visualize=False):
         velocities *= lambd
         velocities -= (1-lambd)*grad -np.sqrt(1-lambd*lambd)*omega_0*noise
 
-        # Calculate heat exchange (energy change due to position update)
-        # dQ = U(x_new,λ) - U(x_old,λ)
-        heat += potential(positions, protocol[i]) - energy_new_params
+        # Calculate heat exchange (all energy change at fixed control parameters is heat)
+        heat += potential(positions, protocol[i]) + 0.5 * velocities**2 / (omega_0*omega_0) - old_energy
 
         # Store data for visualization at regular intervals
         if visualize and (i-1) % ((number_of_steps+number_of_steps_quiescent) // number_of_pictures) == 0:
@@ -509,23 +510,28 @@ def final_answer(protocol):
     # Reshape positons array into 100 batches of 10^4 trajectories each
     # This allows for better statistical analysis through batch means
     positions = torch.reshape(positions, (int(1e2), int(1e4)))
+    work = torch.reshape(work, (int(1e2), int(1e4)))
 
     # Calculate mean erasure for each batch
     sample_means = 1 - (positions < 0).float().mean(axis = 1)
+    work_sample_means = torch.mean(work, axis=1)
 
     # Calculate overall mean (mean of the batch means)
     overall_mean = torch.mean(sample_means)
+    work_overall_mean = torch.mean(work_sample_means)
 
     # Calculate standard deviation of the batch means
     # unbiased=True uses Bessel's correction (n-1 denominator)
     std_of_means = torch.std(sample_means, unbiased=True)
+    work_std_of_means = torch.std(work_sample_means, unbiased=True)
 
     # Calculate standard error of the mean
     # SE = σ/√n where σ is the standard deviation and n is the number of batches
     standard_error = std_of_means / np.sqrt(100)
+    work_standard_error = work_std_of_means / np.sqrt(100)
 
     # Print results with 6 decimal places of precision
-    print(f"order parameter = {overall_mean:.6f} ± {standard_error:.6f}, n_samples = {100}")
+    print(f"order parameter = {overall_mean:.6f} ± {standard_error:.6f}, mean work = {work_overall_mean:.6f} ± {work_standard_error:.6f}, n_samples = {100}")
 
 if __name__ == "__main__":
     # protocol = load_protocol()

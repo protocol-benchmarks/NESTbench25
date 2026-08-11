@@ -224,8 +224,8 @@ def run_protocol(protocol, number_of_trajectories, kick_velocity= False, visuali
         # dW = U(x,λ_new) - U(x,λ_old) = 0.5*[(x-λ_new)² - (x-λ_old)²]
         work += 0.5 * ((positions - protocol[i])**2 - (positions - protocol[i-1])**2)
 
-        # Current energy before position update
-        old_energy = 0.5 * (positions - protocol[i])**2
+        # Current energy (potential plus kinetic; mass m = kT/(sigma_0*omega_0)^2) before update
+        old_energy = 0.5 * (positions - protocol[i])**2 + 0.5 * velocities**2 / (omega_0*omega_0)
 
         # Update positions using Langevin dynamics
         # dx = -∇U(x,λ)dt + √(2dt)·η, where η is Gaussian white noise
@@ -235,9 +235,8 @@ def run_protocol(protocol, number_of_trajectories, kick_velocity= False, visuali
         velocities *= lambd
         velocities -= (1-lambd)*grad -np.sqrt(1-lambd*lambd)*omega_0*noise
 
-        # Calculate heat exchange (energy change due to position update)
-        # dQ = U(x_new,λ) - U(x_old,λ)
-        new_energy = 0.5 * (positions - protocol[i])**2
+        # Calculate heat exchange (all energy change at fixed control parameters is heat)
+        new_energy = 0.5 * (positions - protocol[i])**2 + 0.5 * velocities**2 / (omega_0*omega_0)
         heat += new_energy - old_energy
 
         # Store data for visualization at regular intervals
@@ -266,6 +265,11 @@ def run_protocol(protocol, number_of_trajectories, kick_velocity= False, visuali
 def calculate_order_parameter(protocol, number_of_trajectories):
     work, heat = run_protocol(protocol, number_of_trajectories)
     return torch.mean(work).item()
+
+def calculate_order_parameter_heat(protocol, number_of_trajectories):
+    # As calculate_order_parameter(), but returns mean heat; use to make heat the optimization objective
+    work, heat = run_protocol(protocol, number_of_trajectories)
+    return torch.mean(heat).item()
 
 def visualize_protocol(protocol, number_of_trajectories, kick_velocity= False):
     """
@@ -458,23 +462,28 @@ def final_answer(protocol, kick_velocity= False):
     # Reshape work array into 100 batches of 10^4 trajectories each
     # This allows for better statistical analysis through batch means
     work = torch.reshape(work, (int(1e2), int(1e4)))
+    heat = torch.reshape(heat, (int(1e2), int(1e4)))
 
     # Calculate mean work for each batch
     sample_means = torch.mean(work, axis=1)
+    heat_sample_means = torch.mean(heat, axis=1)
 
     # Calculate overall mean (mean of the batch means)
     overall_mean = torch.mean(sample_means)
+    heat_overall_mean = torch.mean(heat_sample_means)
 
     # Calculate standard deviation of the batch means
     # unbiased=True uses Bessel's correction (n-1 denominator)
     std_of_means = torch.std(sample_means, unbiased=True)
+    heat_std_of_means = torch.std(heat_sample_means, unbiased=True)
 
     # Calculate standard error of the mean
     # SE = σ/√n where σ is the standard deviation and n is the number of batches
     standard_error = std_of_means / np.sqrt(100)
+    heat_standard_error = heat_std_of_means / np.sqrt(100)
 
     # Print results with 6 decimal places of precision
-    print(f"order parameter = {overall_mean:.6f} ± {standard_error:.6f}, n_samples = {100}")
+    print(f"order parameter = {overall_mean:.6f} ± {standard_error:.6f}, mean heat = {heat_overall_mean:.6f} ± {heat_standard_error:.6f}, n_samples = {100}")
 
 if __name__ == "__main__":
     # protocol = load_protocol()

@@ -1,28 +1,28 @@
-#include "engine_trap_overdamped.h"
+#include "engine_trap_underdamped.h"
 
 #include <random>
 static std::mt19937_64 rng_engine; // default-constructed engine
 static std::uniform_real_distribution<double> uniform_dist(0.0, 1.0);
 static std::normal_distribution<double> normal_dist;  // global object
 
-//translation of an overdamped particle by a(n) harmonic trap
+//translation of an underdamped particle by a(n) harmonic trap
 //Compiles as C++ for I/O and stdlib compatibility, but uses mostly C-style logic
 
 //Build instructions (via Makefile):
 //  make standalone    # compiles as stand-alone executable 'sim' (requires uncommenting main())
-//  make library       # compiles as static library 'libengine_trap_overdamped.a'
+//  make library       # compiles as static library 'libengine_trap_underdamped.a'
 
 //Note:
-//  - Only functions declared in engine_trap_overdamped.h are exposed from the library
-//  - External code should include the header: #include "engine_trap_overdamped.h"
+//  - Only functions declared in engine_trap_underdamped.h are exposed from the library
+//  - External code should include the header: #include "engine_trap_underdamped.h"
 //  - To link against the library in your program:
-//      g++ your_program.c -L. -lengine_trap_overdamped -o your_program
+//      g++ your_program.c -L. -lengine_trap_underdamped -o your_program
 
 // NOTE ON INDENTATION:
 // This file uses minimal or no indentation as a matter of personal preference
 // If you'd prefer conventional formatting, most editors can reindent automatically:
-//   - clang-format:   clang-format -i engine_trap_overdamped.c
-//   - astyle:         astyle --style=kr --indent=spaces=4 engine_trap_overdamped.c
+//   - clang-format:   clang-format -i engine_trap_underdamped.c
+//   - astyle:         astyle --style=kr --indent=spaces=4 engine_trap_underdamped.c
 //   - VS Code:        Right-click → Format Document
 //   - Emacs:          M-x indent-region
 //   - Vim:            gg=G
@@ -52,15 +52,22 @@ using std::ofstream;
 static char st[256];
 
 //mmm, pi
-//static const double pi=4.0*atan(1.0);
+static const double pi=4.0*atan(1.0);
+
+//model parameters
+//lengths in nm
+static double eff_0=1090; //in Hz
+static double quality=7.0;
+static double omega_0=(2.0*pi*eff_0)/(1e6); //in reciprocal microseconds
+static double cycle_time=1e6/eff_0; //1/f_0, in microseconds
 
 //time parameters (microseconds)
 static double tau;
-static double timestep=1e-3;
+static double timestep=0.01; // in microseconds
 
 static const int number_of_protocol_timepoints=1000;
 
-static double trajectory_time=1.0;
+static double trajectory_time=0.15*cycle_time;
 static double protocol_update_time=trajectory_time/(1.0*number_of_protocol_timepoints);
 static int tau_last_protocol_update;
 
@@ -70,8 +77,13 @@ static double cee_instantaneous[number_of_control_parameters];
 static double cee[number_of_protocol_timepoints][number_of_control_parameters];
 static double cee_boundary[number_of_control_parameters][2]={{0.0,5.0}};
 
+//for velocity updates
+static int q_default_protocol=0;
+static double delta_vee[2]={cee_boundary[0][1]/(2.0/(quality*omega_0)+trajectory_time),-cee_boundary[0][1]/(2.0/(quality*omega_0)+trajectory_time)};
+
 //microscopic variables
 static double position;
+static double velocity;
 
 //thermodynamic parameters
 static double work;
@@ -130,7 +142,7 @@ rng_engine.seed(static_cast<uint64_t>(time(NULL)));
 //
 // MAIN_BLOCK_START
 // To compile as a library, comment out everything between here, and DOWN THERE vvv
-//
+//  
 
 int main(void){
 
@@ -154,8 +166,8 @@ return 0;
 }
 
 //
-// MAIN_BLOCK_START
-// To compile as a library, comment out everything between here, and UP THERE vvv
+// To compile as a library, comment out everything betweehn here, and UP THERE ^^^
+// MAIN_BLOCK_END
 //
 
 double gauss_rv(double sigma){
@@ -169,9 +181,13 @@ double gauss_rv(double sigma){
 void equilibrate(void){
 
 //PDF(x) Gaussian with variance kT/k = nm
+//PDF(v) Gaussian with variance kT/m = omega_0^2 (nm)^2
 
 //initialize position
 position=gauss_rv(1.0);
+
+//initialize velocity
+velocity=gauss_rv(omega_0);
 
 //reset counters
 tau=0.0;
@@ -191,20 +207,26 @@ void langevin_step(void){
 double e1,e2;
 double c0=cee_instantaneous[0];
 
-//initial energy
-e1=potential();
+//initial energy (potential plus kinetic; mass m=kT/(sigma_0 omega_0)^2)
+e1=potential()+0.5*velocity*velocity/(omega_0*omega_0);
+
+//parameters
+double lambda=exp(-timestep*omega_0/quality);
 
 //gradient term
-double grad=(c0-position)*timestep;
-double noise=sqrt(2.0*timestep);
+double grad=position-c0;
+grad=grad*quality*omega_0; //Q omega_0= k/gamma
 
 //position update
-position+=grad+noise*gauss_rv(1.0);
+position=position+velocity*timestep;
 
-//final energy
-e2=potential();
+//velocity update (nm/ms)
+velocity=lambda*velocity-(1.0-lambda)*grad+sqrt(1.0-lambda*lambda)*omega_0*gauss_rv(1.0);
 
-//heat increment
+//final energy (potential plus kinetic)
+e2=potential()+0.5*velocity*velocity/(omega_0*omega_0);
+
+//heat increment (all energy change at fixed control parameters is heat)
 heat+=e2-e1;
 
 //increment time
@@ -223,6 +245,7 @@ double q1=0.5*p1*p1;
 return (q1);
 
 }
+
 
 void update_potential(void){
 
@@ -265,7 +288,13 @@ double e1,e2;
 
 equilibrate();
 
+//initial-time delta spike for optimal protocol
+if(q_default_protocol==1){work+=delta_vee[0]*(velocity+0.5*delta_vee[0])/(omega_0*omega_0);velocity+=delta_vee[0];}
+
 while(tau<trajectory_time){simulation_step();}
+
+//final-time delta spike for optimal protocol
+if(q_default_protocol==1){work+=delta_vee[1]*(velocity+0.5*delta_vee[1])/(omega_0*omega_0);velocity+=delta_vee[1];}
 
 //final-time potential
 e1=potential();
@@ -273,6 +302,7 @@ for(int i=0;i<number_of_control_parameters;i++){cee_instantaneous[i]=cee_boundar
 e2=potential();
 work+=e2-e1;
 
+//cout << work << " " << heat << " " << position << " " << velocity/omega_0 << endl;
 
 }
 
@@ -281,10 +311,13 @@ void load_default_protocol(void){
 int i;
 double t1;
 
+//activate flag for velocity kicks
+q_default_protocol=1;
+
 for(i=0;i<number_of_protocol_timepoints;i++){
 
 t1=i/(number_of_protocol_timepoints-1.0);
-cee[i][0]=(cee_boundary[0][1]*(trajectory_time*t1+1))/(trajectory_time+2.0);
+cee[i][0]=cee_boundary[0][1]*(quality*omega_0*t1*trajectory_time+1.0)/(quality*omega_0*trajectory_time+2.0);
 
 }
 
@@ -694,16 +727,22 @@ void output_optimal_protocol(void){
 //optimal protocol
 snprintf(st,sizeof(st),"report_optimal_protocol.dat");
 ofstream output_opt(st,ios::out);
+
 output_opt << 0 << " " << 0 << endl;
-output_opt << 0 << " " << cee_boundary[0][1]/(trajectory_time+2.0) << endl;
-output_opt << 1.0 << " " << cee_boundary[0][1]-cee_boundary[0][1]/(trajectory_time+2.0) << endl;
-output_opt << 1.0 << " " << cee_boundary[0][1] << endl;
+output_opt << 0 << " " << cee_boundary[0][1]/(quality*omega_0*trajectory_time+2.0) << endl;
+output_opt << 0 << " " << cee_boundary[0][1]/(quality*omega_0*trajectory_time+2.0)+cee_boundary[0][1]*(quality/omega_0)/(2.0+quality*omega_0*trajectory_time) << endl;
+output_opt << 0 << " " << cee_boundary[0][1]/(quality*omega_0*trajectory_time+2.0) << endl;
+output_opt << 1 << " " << cee_boundary[0][1]*(quality*omega_0*trajectory_time+1.0)/(quality*omega_0*trajectory_time+2.0) << endl;
+output_opt << 1 << " " << cee_boundary[0][1]*(quality*omega_0*trajectory_time+1.0)/(quality*omega_0*trajectory_time+2.0)-cee_boundary[0][1]*(quality/omega_0)/(2.0+quality*omega_0*trajectory_time) << endl;
+output_opt << 1 << " " << cee_boundary[0][1]*(quality*omega_0*trajectory_time+1.0)/(quality*omega_0*trajectory_time+2.0) << endl;
+
+output_opt << 1 << " " << cee_boundary[0][1] << endl;
 output_opt.close();
 
 //optimal value
 snprintf(st,sizeof(st),"report_optimal_work.dat");
 ofstream output_wopt(st,ios::out);
-output_wopt << cee_boundary[0][1]*cee_boundary[0][1]/(trajectory_time + 2.0) << endl;
+output_wopt << cee_boundary[0][1]*cee_boundary[0][1]/(2.0+quality*omega_0*trajectory_time) << endl;
 output_wopt.close();
 
 }

@@ -31,11 +31,12 @@ To use a custom protocol:
 
 The following functions are available in the Python module:
 
-- `final_answer(protocol, kick_velocity=False)`: Calculates the order parameter (mean work) over 100 samples of 10^4 trajectories
+- `final_answer(protocol, kick_velocity=False)`: Calculates the order parameter (mean work) and the mean heat over 100 samples of 10^4 trajectories
 - `load_protocol(filename="input_control_parameters_learned.dat")`: Reads protocol from file with automatic handling of different protocol lengths
 - `load_default_protocol()`: Loads the analytically optimal protocol
 - `visualize_protocol(protocol, number_of_trajectories, kick_velocity=False)`: Generates visualizations of the current protocol
 - `calculate_order_parameter(protocol, number_of_trajectories)`: Computes order parameter over n_traj trajectories
+- `calculate_order_parameter_heat(protocol, number_of_trajectories)`: As above, but returns the mean heat, allowing heat to be used as the optimization objective
 - `run_protocol(protocol, number_of_trajectories, kick_velocity=False, visualize=False)`: Core simulation function that runs the Langevin dynamics
 
 ## Visualization

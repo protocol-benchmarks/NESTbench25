@@ -45,7 +45,7 @@ To use a custom protocol:
 
 The following functions are exposed in the library:
 
-- `final_answer()`: Calculates the order parameter (erasure error rate) over 100 samples of 10^4 trajectories
+- `final_answer()`: Calculates the order parameter (erasure error rate) and the mean erasure work over 100 samples of 10^4 trajectories
 - `load_protocol()`: Reads protocol from `input_control_parameters.dat`
 - `load_default_protocol()`: Loads the default protocol
 - `visualize_protocol()`: Generates visualizations of the current protocol

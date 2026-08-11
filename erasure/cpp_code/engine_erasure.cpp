@@ -87,6 +87,8 @@ static double heat;
 static double mean_work;
 static double mean_heat;
 static double mean_prob_success;
+static double op_work; //mean work recorded by calculate_order_parameter()
+static double op_heat; //mean heat recorded by calculate_order_parameter()
 
 //for visualization
 static const int number_of_pictures=150;
@@ -200,8 +202,8 @@ double e1,e2;
 double c0=cee_instantaneous[0];
 double c1=cee_instantaneous[1];
 
-//initial energy
-e1=potential();
+//initial energy (potential plus kinetic; mass m=kT/(sigma_0 omega_0)^2)
+e1=potential()+0.5*velocity*velocity/(omega_0*omega_0);
 
 //parameters
 double lambda=exp(-timestep*omega_0/quality);
@@ -216,10 +218,10 @@ position=position+velocity*timestep;
 //velocity update (nm/ms)
 velocity=lambda*velocity-(1.0-lambda)*grad+sqrt(1.0-lambda*lambda)*omega_0*gauss_rv(1.0);
 
-//final energy
-e2=potential();
+//final energy (potential plus kinetic)
+e2=potential()+0.5*velocity*velocity/(omega_0*omega_0);
 
-//heat increment
+//heat increment (all energy change at fixed control parameters is heat)
 heat+=e2-e1;
 
 //increment time
@@ -377,11 +379,15 @@ int i;
 
 double op;
 mean_prob_success=0.0;
+op_work=0.0;
+op_heat=0.0;
 
 for(i=0;i<n_traj;i++){
 
 run_trajectory();
 if(position<0){mean_prob_success+=1.0/(1.0*n_traj);}
+op_work+=work/(1.0*n_traj);
+op_heat+=heat/(1.0*n_traj);
 
 }
 
@@ -434,20 +440,33 @@ double op;
 double op_local=0.0;
 double op2_local=0.0;
 
+double w;
+double w_local=0.0;
+double w2_local=0.0;
+
 double av,var;
+double av_w,var_w;
 
 for(i=0;i<n_samples;i++){
 
 op=calculate_order_parameter(n_traj);
+w=op_work;
 
 op_local+=op;
 op2_local+=op*op;
 
+w_local+=w;
+w2_local+=w*w;
+
 av=op_local/(i+1.0);
 var=op2_local/(i+1.0)-av*av;
-if(i==0){var=0.0;}
 
-out1 << "order parameter = " << av << " ± " << sqrt(var/(i+1.0)) << ", n_samples = " << i+1 << endl;
+av_w=w_local/(i+1.0);
+var_w=w2_local/(i+1.0)-av_w*av_w;
+
+if(i==0){var=0.0;var_w=0.0;}
+
+out1 << "order parameter = " << av << " ± " << sqrt(var/(i+1.0)) << ", mean work = " << av_w << " ± " << sqrt(var_w/(i+1.0)) << ", n_samples = " << i+1 << endl;
 
 }
 }
