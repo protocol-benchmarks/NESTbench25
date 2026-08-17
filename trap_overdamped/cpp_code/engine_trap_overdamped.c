@@ -78,7 +78,6 @@ static double work;
 static double heat;
 static double mean_work;
 static double mean_heat;
-static double op_heat; //mean heat recorded by calculate_order_parameter()
 
 //for visualization
 static const int number_of_pictures=150;
@@ -113,7 +112,6 @@ void make_work_histogram(double *work_values,int n_traj);
 static double potential(void);
 static double gauss_rv(double sigma);
 double calculate_order_parameter(int n_traj); //computes order parameter over n_traj trajectories
-double calculate_order_parameter_heat(int n_traj); //as calculate_order_parameter(), but returns mean heat
 
 void initialize(void){
 
@@ -328,27 +326,15 @@ rng_engine.seed(static_cast<uint64_t>(time(NULL)));
 int i;
 
 double op=0.0;
-op_heat=0.0;
 
 for(i=0;i<n_traj;i++){
 
 run_trajectory();
 op+=work/(1.0*n_traj);
-op_heat+=heat/(1.0*n_traj);
 
 }
 
 return (op);
-
-}
-
-
-double calculate_order_parameter_heat(int n_traj){
-
-//as calculate_order_parameter(), but returns mean heat; use to make heat the optimization objective
-calculate_order_parameter(n_traj);
-
-return (op_heat);
 
 }
 
@@ -367,33 +353,20 @@ double op;
 double op_local=0.0;
 double op2_local=0.0;
 
-double q;
-double q_local=0.0;
-double q2_local=0.0;
-
 double av,var;
-double av_q,var_q;
 
 for(i=0;i<n_samples;i++){
 
 op=calculate_order_parameter(n_traj);
-q=op_heat;
 
 op_local+=op;
 op2_local+=op*op;
 
-q_local+=q;
-q2_local+=q*q;
-
 av=op_local/(i+1.0);
 var=op2_local/(i+1.0)-av*av;
+if(i==0){var=0.0;}
 
-av_q=q_local/(i+1.0);
-var_q=q2_local/(i+1.0)-av_q*av_q;
-
-if(i==0){var=0.0;var_q=0.0;}
-
-out1 << "order parameter = " << av << " ± " << sqrt(var/(i+1.0)) << ", mean heat = " << av_q << " ± " << sqrt(var_q/(i+1.0)) << ", n_samples = " << i+1 << endl;
+out1 << "order parameter = " << av << " ± " << sqrt(var/(i+1.0)) << ", n_samples = " << i+1 << endl;
 
 }
 }

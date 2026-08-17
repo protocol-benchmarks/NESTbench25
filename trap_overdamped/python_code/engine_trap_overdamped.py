@@ -419,11 +419,6 @@ def calculate_order_parameter(protocol, number_of_trajectories):
     work, heat = run_protocol(protocol, number_of_trajectories)
     return torch.mean(work).item()
 
-def calculate_order_parameter_heat(protocol, number_of_trajectories):
-    # As calculate_order_parameter(), but returns mean heat; use to make heat the optimization objective
-    work, heat = run_protocol(protocol, number_of_trajectories)
-    return torch.mean(heat).item()
-
 def final_answer(protocol):
     """
     Calculate the statistical properties of work with high precision.
@@ -448,28 +443,23 @@ def final_answer(protocol):
     # Reshape work array into 100 batches of 10^4 trajectories each
     # This allows for better statistical analysis through batch means
     work = torch.reshape(work, (int(1e2), int(1e4)))
-    heat = torch.reshape(heat, (int(1e2), int(1e4)))
 
     # Calculate mean work for each batch
     sample_means = torch.mean(work, axis=1)
-    heat_sample_means = torch.mean(heat, axis=1)
 
     # Calculate overall mean (mean of the batch means)
     overall_mean = torch.mean(sample_means)
-    heat_overall_mean = torch.mean(heat_sample_means)
 
     # Calculate standard deviation of the batch means
     # unbiased=True uses Bessel's correction (n-1 denominator)
     std_of_means = torch.std(sample_means, unbiased=True)
-    heat_std_of_means = torch.std(heat_sample_means, unbiased=True)
 
     # Calculate standard error of the mean
     # SE = σ/√n where σ is the standard deviation and n is the number of batches
     standard_error = std_of_means / np.sqrt(100)
-    heat_standard_error = heat_std_of_means / np.sqrt(100)
 
     # Print results with 6 decimal places of precision
-    print(f"order parameter = {overall_mean:.6f} ± {standard_error:.6f}, mean heat = {heat_overall_mean:.6f} ± {heat_standard_error:.6f}, n_samples = {100}")
+    print(f"order parameter = {overall_mean:.6f} ± {standard_error:.6f}, n_samples = {100}")
 
 if __name__ == "__main__":
     protocol = load_default_protocol()

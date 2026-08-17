@@ -14,7 +14,6 @@ void output_optimal_protocol(void);
 void visualize_protocol(void); //visualize the effect of the current protocol
 void load_default_protocol(void); //loads default protocol
 double calculate_order_parameter(int n_traj); //computes order parameter over n_traj trajectories
-double calculate_order_parameter_heat(int n_traj); //as calculate_order_parameter(), but returns mean heat
 
 
 #ifdef __cplusplus

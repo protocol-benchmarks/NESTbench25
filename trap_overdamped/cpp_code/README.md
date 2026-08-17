@@ -20,7 +20,6 @@ To run the engine as a standalone code:
 The code includes several useful functions:
 - `load_default_protocol()`: Loads the optimal protocol
 - `visualize_protocol()`: Calculates mean work using 10^5 trajectories and outputs visualization
-- `final_answer()`: Calculates the order parameter (mean work) and the mean heat over 100 samples of 10^4 trajectories
-- `calculate_order_parameter_heat(n_traj)`: As `calculate_order_parameter(n_traj)`, but returns the mean heat, allowing heat to be used as the optimization objective
+- `final_answer()`: Calculates the order parameter (mean work) over 100 samples of 10^4 trajectories
 
 For protocol learning, the code can be used as an external library as demonstrated in the neuroevolutionary approach included in this repository.

@@ -27,8 +27,7 @@ This will:
 - `load_default_protocol()`: Generates the optimal protocol with modified ramp behavior
 - `run_protocol(protocol, number_of_trajectories, visualize=False)`: Simulates particle trajectories
 - `visualize_protocol(protocol, number_of_trajectories)`: Creates visualizations of the protocol execution
-- `final_answer(protocol)`: Calculates the order parameter (mean work) and the mean heat with high precision
-- `calculate_order_parameter_heat(protocol, number_of_trajectories)`: As `calculate_order_parameter`, but returns the mean heat, allowing heat to be used as the optimization objective
+- `final_answer(protocol)`: Calculates the order parameter (mean work) with high precision
 
 ### Protocol Optimization
 

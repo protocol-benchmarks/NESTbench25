@@ -34,7 +34,7 @@ To use a custom protocol:
 
 The following functions are available in the module:
 
-- `final_answer(protocol)`: Calculates the order parameter (erasure error rate) and the mean erasure work over 100 samples of 10^4 trajectories
+- `final_answer(protocol)`: Calculates the order parameter (erasure error rate) over 100 samples of 10^4 trajectories
 - `load_protocol(filename)`: Reads protocol from the specified file with automatic interpolation
 - `load_default_protocol()`: Generates a default protocol with piecewise constant behavior
 - `visualize_protocol(protocol, number_of_trajectories)`: Generates visualizations of the current protocol
