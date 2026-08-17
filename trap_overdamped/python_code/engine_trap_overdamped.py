@@ -19,13 +19,14 @@ import torch
 import math
 import numpy as np
 import matplotlib.pyplot as plt
+import shutil
 import os
 import subprocess
 
 # Configure matplotlib for nicer plots
 plt.rcParams['font.family'] = 'serif'
 plt.rcParams['font.serif'] = 'Computer Modern'
-plt.rcParams['text.usetex'] = True  # Enable LaTeX rendering
+plt.rcParams['text.usetex'] = shutil.which('latex') is not None  # fall back to mathtext if LaTeX is unavailable
 plt.rcParams['font.size'] = 16
 plt.rcParams['xtick.labelsize'] = 16
 plt.rcParams['ytick.labelsize'] = 16
@@ -215,7 +216,7 @@ def run_protocol(protocol, number_of_trajectories, visualize=False):
         parameters_to_visualize[0] = protocol[0]
 
     # Main simulation loop
-    for i in range(1, number_of_steps - 1):
+    for i in range(1, number_of_steps + 1):  # all interior protocol entries are applied
         # Calculate work done by changing the protocol
         # Work is the change in potential energy due to protocol change
         # dW = U(x,λ_new) - U(x,λ_old) = 0.5*[(x-λ_new)² - (x-λ_old)²]
@@ -275,7 +276,7 @@ def visualize_protocol(protocol, number_of_trajectories):
     # Create plots directory if it doesn't exist
     os.makedirs('plots', exist_ok=True)
     fig, ax = plt.subplots(figsize=(6, 6))
-    plt.plot(np.linspace(0,trajectory_time, number_of_steps+2), protocol[:,0], color = "g")
+    plt.plot(np.linspace(0,trajectory_time, number_of_steps+2), protocol[:,0].cpu(), color = "g")
     plt.xlabel(r"$t$")
     plt.ylabel(r"$c_0$")
     fig.tight_layout()
@@ -285,6 +286,7 @@ def visualize_protocol(protocol, number_of_trajectories):
     work, heat, pos_to_visualize, parameters_to_visualize = run_protocol(
         protocol, number_of_trajectories, visualize=True
     )
+    work, heat, pos_to_visualize, parameters_to_visualize = work.cpu(), heat.cpu(), pos_to_visualize.cpu(), parameters_to_visualize.cpu()  # move to CPU: numpy/matplotlib cannot consume CUDA tensors
 
     # Define x-axis range for plotting potential and distributions
     # Range is set to be twice the maximum protocol value in both directions
@@ -417,9 +419,10 @@ def visualize_protocol(protocol, number_of_trajectories):
 
 def calculate_order_parameter(protocol, number_of_trajectories):
     work, heat = run_protocol(protocol, number_of_trajectories)
+    work, heat = work.cpu(), heat.cpu()  # move to CPU: numpy/matplotlib cannot consume CUDA tensors
     return torch.mean(work).item()
 
-def final_answer(protocol):
+def final_answer(protocol, number_of_trajectories=int(1e6)):
     """
     Calculate the statistical properties of work with high precision.
 
@@ -438,11 +441,14 @@ def final_answer(protocol):
         Prints the mean work value and standard error to the console
     """
     # Run a large number of trajectories for statistical significance
-    work, heat = run_protocol(protocol, int(1e6))
+    n_samples = 100
+    per_sample = max(1, int(number_of_trajectories) // n_samples)
+    work, heat = run_protocol(protocol, n_samples * per_sample)
+    work, heat = work.cpu(), heat.cpu()  # move to CPU: numpy/matplotlib cannot consume CUDA tensors
 
-    # Reshape work array into 100 batches of 10^4 trajectories each
+    # Reshape work array into n_samples batches (default: 100 batches of 10^4 trajectories)
     # This allows for better statistical analysis through batch means
-    work = torch.reshape(work, (int(1e2), int(1e4)))
+    work = torch.reshape(work, (n_samples, per_sample))
 
     # Calculate mean work for each batch
     sample_means = torch.mean(work, axis=1)
@@ -458,10 +464,25 @@ def final_answer(protocol):
     # SE = σ/√n where σ is the standard deviation and n is the number of batches
     standard_error = std_of_means / np.sqrt(100)
 
-    # Print results with 6 decimal places of precision
-    print(f"order parameter = {overall_mean:.6f} ± {standard_error:.6f}, n_samples = {100}")
+    # Report results to the console and to a dedicated output file
+    line = f"order parameter = {overall_mean:.6f} ± {standard_error:.6f}, n_samples = {n_samples}"
+    with open("report_answer.dat", "w") as f:
+        f.write(line + "\n")
+    print(line)
 
 if __name__ == "__main__":
-    protocol = load_default_protocol()
-    visualize_protocol(protocol, int(1e5))
-    final_answer(protocol)
+    import argparse
+    parser = argparse.ArgumentParser(description="Overdamped trap benchmark")
+    parser.add_argument("-p", "--protocol", default="default",
+                        help="protocol: 'default' or path to a protocol file")
+    parser.add_argument("-n", "--n-traj", type=int, default=int(1e6),
+                        help="total number of trajectories for the final answer")
+    parser.add_argument("-v", "--visualize", action="store_true",
+                        help="make movies/histograms instead of computing the final answer")
+    args = parser.parse_args()
+
+    protocol = load_default_protocol() if args.protocol == "default" else load_protocol(args.protocol)
+    if args.visualize:
+        visualize_protocol(protocol, int(1e5))
+    else:
+        final_answer(protocol, args.n_traj)

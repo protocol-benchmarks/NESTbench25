@@ -6,8 +6,8 @@
 #
 # NOTES:
 #   - Automatically removes old object, library, and executable files before building
-#   - 'standalone' builds with main() uncommented
-#   - 'library' builds object file and static library for linking
+#   - 'standalone' builds the executable 'sim'; run './sim -h' for usage
+#   - 'library' builds a static library for linking (main() is excluded automatically)
 
 CXX = g++
 CXXFLAGS = -Wall -O
@@ -24,5 +24,5 @@ standalone:
 
 library:
 	rm -f $(OBJ) $(LIBNAME) $(EXEC)
-	$(CXX) -c $(SRC) -o $(OBJ)
+	$(CXX) $(CXXFLAGS) -DENGINE_LIBRARY -c $(SRC) -o $(OBJ)
 	$(AR) $(ARFLAGS) $(LIBNAME) $(OBJ)

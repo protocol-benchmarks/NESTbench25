@@ -19,13 +19,14 @@ import torch
 import math
 import numpy as np
 import matplotlib.pyplot as plt
+import shutil
 import os
 import subprocess
 
 # Configure matplotlib for nicer plots
 plt.rcParams['font.family'] = 'serif'
 plt.rcParams['font.serif'] = 'Computer Modern'
-plt.rcParams['text.usetex'] = True  # Enable LaTeX rendering
+plt.rcParams['text.usetex'] = shutil.which('latex') is not None  # fall back to mathtext if LaTeX is unavailable
 plt.rcParams['font.size'] = 16
 plt.rcParams['xtick.labelsize'] = 16
 plt.rcParams['ytick.labelsize'] = 16
@@ -213,12 +214,14 @@ def run_protocol(protocol, number_of_trajectories, kick_velocity= False, visuali
 
     if visualize:
         pos_to_visualize = torch.zeros(number_of_pictures+2, number_of_trajectories, device=device)
+        vel_to_visualize = torch.zeros(number_of_pictures+2, number_of_trajectories, device=device)  # velocity is an essential degree of freedom in the underdamped case
         parameters_to_visualize = torch.zeros(number_of_pictures+2, number_of_control_parameters, device=device)
         pos_to_visualize[0] = positions
+        vel_to_visualize[0] = velocities
         parameters_to_visualize[0] = protocol[0]
 
     # Main simulation loop
-    for i in range(1, number_of_steps - 1):
+    for i in range(1, number_of_steps + 1):  # all interior protocol entries are applied
         # Calculate work done by changing the protocol
         # Work is the change in potential energy due to protocol change
         # dW = U(x,λ_new) - U(x,λ_old) = 0.5*[(x-λ_new)² - (x-λ_old)²]
@@ -244,6 +247,7 @@ def run_protocol(protocol, number_of_trajectories, kick_velocity= False, visuali
         if visualize and (i-1) % (number_of_steps // number_of_pictures) == 0:
             idx = 1 + (i-1) // (number_of_steps // number_of_pictures)
             pos_to_visualize[idx, :] = positions
+            vel_to_visualize[idx, :] = velocities
             parameters_to_visualize[idx, :] = protocol[i]
 
     # Final work calculation for the last step
@@ -257,14 +261,16 @@ def run_protocol(protocol, number_of_trajectories, kick_velocity= False, visuali
     # Return appropriate results based on visualization flag
     if visualize:
         pos_to_visualize[-1] = positions
+        vel_to_visualize[-1] = velocities
         parameters_to_visualize[-1] = protocol[-1]
-        return work, heat, pos_to_visualize, parameters_to_visualize
+        return work, heat, pos_to_visualize, vel_to_visualize, parameters_to_visualize
     else:
         return work, heat
 
 
 def calculate_order_parameter(protocol, number_of_trajectories):
     work, heat = run_protocol(protocol, number_of_trajectories)
+    work, heat = work.cpu(), heat.cpu()  # move to CPU: numpy/matplotlib cannot consume CUDA tensors
     return torch.mean(work).item()
 
 def visualize_protocol(protocol, number_of_trajectories, kick_velocity= False):
@@ -292,7 +298,7 @@ def visualize_protocol(protocol, number_of_trajectories, kick_velocity= False):
     # Create plots directory if it doesn't exist
     os.makedirs('plots', exist_ok=True)
     fig, ax = plt.subplots(figsize=(6, 6))
-    plt.plot(np.linspace(0,trajectory_time, number_of_steps+2), protocol[:,0], color = "g")
+    plt.plot(np.linspace(0,trajectory_time, number_of_steps+2), protocol[:,0].cpu(), color = "g")
     plt.xlabel(r"$t$")
     plt.ylabel(r"$c_0$")
     fig.tight_layout()
@@ -300,9 +306,10 @@ def visualize_protocol(protocol, number_of_trajectories, kick_velocity= False):
 
 
     # Run the simulation with visualization enabled
-    work, heat, pos_to_visualize, parameters_to_visualize = run_protocol(
+    work, heat, pos_to_visualize, vel_to_visualize, parameters_to_visualize = run_protocol(
         protocol, number_of_trajectories, visualize=True, kick_velocity = kick_velocity
     )
+    work, heat, pos_to_visualize, vel_to_visualize, parameters_to_visualize = work.cpu(), heat.cpu(), pos_to_visualize.cpu(), vel_to_visualize.cpu(), parameters_to_visualize.cpu()  # move to CPU: numpy/matplotlib cannot consume CUDA tensors
 
     # Define x-axis range for plotting potential and distributions
     # Range is set to be twice the maximum protocol value in both directions
@@ -322,10 +329,19 @@ def visualize_protocol(protocol, number_of_trajectories, kick_velocity= False):
 
     # Generate a series of plots showing the evolution of the system
     for i in range(number_of_pictures+2):
-        fig, ax = plt.subplots(figsize=(6, 6))
+        fig, (ax, ax_v) = plt.subplots(1, 2, figsize=(12, 6))
 
         # Create histogram of particle positions
         hist, bin_edges = np.histogram(pos_to_visualize[i], bins=n_bins, density=True)
+
+        # Velocity distribution (essential degree of freedom in the underdamped case)
+        v_hist, v_edges = np.histogram(vel_to_visualize[i], bins=n_bins, density=True)
+        v_centers = (v_edges[:-1] + v_edges[1:]) / 2
+        ax_v.plot(v_centers, v_hist, 'b-', label=r"$P(v,t)$")
+        ax_v.set_xlim(-4*omega_0*5, 4*omega_0*5)
+        ax_v.set_xlabel(r"$v$", fontsize=16)
+        ax_v.set_yticks([])
+        ax_v.legend(loc='upper right', frameon=False)
 
         # Compute bin centers for plotting histogram
         bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
@@ -435,7 +451,7 @@ def visualize_protocol(protocol, number_of_trajectories, kick_velocity= False):
 
 
 
-def final_answer(protocol, kick_velocity= False):
+def final_answer(protocol, kick_velocity= False, number_of_trajectories=int(1e6)):
     """
     Calculate the statistical properties of work with high precision.
 
@@ -454,10 +470,13 @@ def final_answer(protocol, kick_velocity= False):
         Prints the mean work value and standard error to the console
     """
     # Run a large number of trajectories for statistical significance
-    work, heat = run_protocol(protocol, int(1e6), kick_velocity = kick_velocity)
-    # Reshape work array into 100 batches of 10^4 trajectories each
+    n_samples = 100
+    per_sample = max(1, int(number_of_trajectories) // n_samples)
+    work, heat = run_protocol(protocol, n_samples * per_sample, kick_velocity = kick_velocity)
+    work, heat = work.cpu(), heat.cpu()  # move to CPU: numpy/matplotlib cannot consume CUDA tensors
+    # Reshape work array into n_samples batches (default: 100 batches of 10^4 trajectories)
     # This allows for better statistical analysis through batch means
-    work = torch.reshape(work, (int(1e2), int(1e4)))
+    work = torch.reshape(work, (n_samples, per_sample))
 
     # Calculate mean work for each batch
     sample_means = torch.mean(work, axis=1)
@@ -473,13 +492,28 @@ def final_answer(protocol, kick_velocity= False):
     # SE = σ/√n where σ is the standard deviation and n is the number of batches
     standard_error = std_of_means / np.sqrt(100)
 
-    # Print results with 6 decimal places of precision
-    print(f"order parameter = {overall_mean:.6f} ± {standard_error:.6f}, n_samples = {100}")
+    # Report results to the console and to a dedicated output file
+    line = f"order parameter = {overall_mean:.6f} ± {standard_error:.6f}, n_samples = {n_samples}"
+    with open("report_answer.dat", "w") as f:
+        f.write(line + "\n")
+    print(line)
 
 if __name__ == "__main__":
-    # protocol = load_protocol()
-    # visualize_protocol(protocol, int(1e5),  kick_velocity= False)
-    # final_answer(protocol, kick_velocity= False)
-    protocol = load_default_protocol()
-    visualize_protocol(protocol, int(1e5),  kick_velocity= True)
-    final_answer(protocol, kick_velocity= True)
+    import argparse
+    parser = argparse.ArgumentParser(description="Underdamped trap benchmark")
+    parser.add_argument("-p", "--protocol", default="default",
+                        help="protocol: 'default' or path to a protocol file")
+    parser.add_argument("-n", "--n-traj", type=int, default=int(1e6),
+                        help="total number of trajectories for the final answer")
+    parser.add_argument("--no-kick", action="store_true",
+                        help="disable the velocity kicks applied with the default protocol")
+    parser.add_argument("-v", "--visualize", action="store_true",
+                        help="make movies/histograms instead of computing the final answer")
+    args = parser.parse_args()
+
+    kick = not args.no_kick
+    protocol = load_default_protocol() if args.protocol == "default" else load_protocol(args.protocol)
+    if args.visualize:
+        visualize_protocol(protocol, int(1e5), kick_velocity=kick)
+    else:
+        final_answer(protocol, kick_velocity=kick, number_of_trajectories=args.n_traj)

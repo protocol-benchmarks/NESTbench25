@@ -9,6 +9,7 @@ optimal control protocols for minimal work in stochastic thermodynamic systems.
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
+import shutil
 import copy
 import logging
 import random
@@ -26,7 +27,7 @@ torch.set_default_dtype(torch.float64)
 # Configure matplotlib for publication-quality plots
 plt.rcParams['font.family'] = 'serif'
 plt.rcParams['font.serif'] = 'Computer Modern'
-plt.rcParams['text.usetex'] = True  # Enable LaTeX rendering
+plt.rcParams['text.usetex'] = shutil.which('latex') is not None  # fall back to mathtext if LaTeX is unavailable
 plt.rcParams['font.size'] = 16
 plt.rcParams['xtick.labelsize'] = 16
 plt.rcParams['ytick.labelsize'] = 16

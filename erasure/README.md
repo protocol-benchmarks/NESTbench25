@@ -28,3 +28,19 @@ The boundary conditions are $\mathbf{c}(0) = \mathbf{c}(t_f) = (0, 5)$, which co
 
 The default protocol attempts to merge the double wells, translate the resulting single well to the left, and then reconstitute the double-well potential. While this approach works well for longer erasure times, it is ineffective for the short duration specified in this benchmark, achieving only about 53% successful erasure.
 
+
+## Learned Protocol
+
+Both code directories include `input_control_parameters_learned.dat`, a
+pre-learned protocol in the spirit of the fast-erasure protocols realized
+experimentally by the Bellon group [Dago, Pereda, Barros, Ciliberto & Bellon;
+see e.g. Phys. Rev. Lett. 126, 170601 (2021) and Appl. Phys. Rev. 11, 041308
+(2024)], which achieves a much lower erasure error rate than the default
+protocol within the same time $t_f$. Run it with `./sim -p input_control_parameters_learned.dat` (C++) or
+`python engine_erasure.py -p input_control_parameters_learned.dat` (Python).
+
+Note that even under a good protocol the final state exhibits fluctuations:
+the erasure time is only half an oscillation period, the system ends out of
+equilibrium, and thermal excitation over the barrier (in addition to
+tunneling-like passages during the protocol) sets a floor on the achievable
+error rate at fixed $t_f$.

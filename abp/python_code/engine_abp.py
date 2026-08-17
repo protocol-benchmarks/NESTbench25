@@ -25,13 +25,14 @@ import torch
 import math
 import numpy as np
 import matplotlib.pyplot as plt
+import shutil
 import os
 import subprocess
 
 # Configure matplotlib for nicer plots
 plt.rcParams['font.family'] = 'serif'
 plt.rcParams['font.serif'] = 'Computer Modern'
-plt.rcParams['text.usetex'] = True  # Enable LaTeX rendering
+plt.rcParams['text.usetex'] = shutil.which('latex') is not None  # fall back to mathtext if LaTeX is unavailable
 plt.rcParams['font.size'] = 16
 plt.rcParams['xtick.labelsize'] = 16
 plt.rcParams['ytick.labelsize'] = 16
@@ -46,7 +47,7 @@ torch.set_default_dtype(torch.float64)  # Use double precision for numerical sta
 
 # Simulation parameters
 trajectory_time = .44  # Total simulation time
-timestep = 0.001  # Integration time step
+timestep = 0.0004  # Integration time step (matches the C++ implementation)
 number_of_steps = int(trajectory_time/timestep)  # Total number of simulation steps
 # protocol_update_time=trajectory_time/(1.0*number_of_steps)
 
@@ -124,6 +125,10 @@ def load_protocol(filename="input_control_parameters.dat"):
         # Verify final shape matches requirements
         if protocol_values.shape != (number_of_steps, number_of_control_parameters):
             raise ValueError(f"Failed to generate protocol with shape ({number_of_steps}, {number_of_control_parameters}) from protocol data with shape {protocol_data.shape}")
+
+        # Clip to the same admissible ranges as the C++ implementation
+        protocol_values[:, 0] = np.clip(protocol_values[:, 0], 1.0, 7.0)   # kappa
+        protocol_values[:, 1] = np.clip(protocol_values[:, 1], 0.0, 11.0)  # v0 (lambda)
 
         cee[1:-1] = torch.from_numpy(protocol_values)
 
@@ -223,8 +228,8 @@ def run_protocol(protocol, number_of_trajectories, visualize=False):
         pos_to_visualize[0] = positions
         parameters_to_visualize[0] = protocol[0]
 
-    # Main simulation loop
-    for i in range(1, number_of_steps - 1):
+    # Main simulation loop (i = 1 ... number_of_steps: all interior protocol entries are applied)
+    for i in range(1, number_of_steps + 1):
         # Calculate work done by changing the protocol
         # Work is the change in potential energy due to protocol change
         # dW = U(x,λ_new) - U(x,λ_old) = 0.5*[(x-λ_new)² - (x-λ_old)²]
@@ -294,8 +299,8 @@ def visualize_protocol(protocol, number_of_trajectories):
     # Create plots directory if it doesn't exist
     os.makedirs('plots', exist_ok=True)
     fig, ax = plt.subplots(figsize=(6, 6))
-    plt.plot(np.linspace(0,trajectory_time, number_of_steps+2), protocol[:,0], color = "g")
-    plt.plot(np.linspace(0,trajectory_time, number_of_steps+2), protocol[:,1], color = "b")
+    plt.plot(np.linspace(0,trajectory_time, number_of_steps+2), protocol[:,0].cpu(), color = "g")
+    plt.plot(np.linspace(0,trajectory_time, number_of_steps+2), protocol[:,1].cpu(), color = "b")
     plt.xlabel(r"$t$")
     plt.ylabel(r"$c$")
     fig.tight_layout()
@@ -306,6 +311,7 @@ def visualize_protocol(protocol, number_of_trajectories):
     work, heat,positions, pos_to_visualize, parameters_to_visualize = run_protocol(
         protocol, number_of_trajectories, visualize=True
     )
+    work, heat, positions, pos_to_visualize, parameters_to_visualize = work.cpu(), heat.cpu(), positions.cpu(), pos_to_visualize.cpu(), parameters_to_visualize.cpu()  # move to CPU: numpy/matplotlib cannot consume CUDA tensors
     # Define x-axis range for plotting potential and distributions
     # Range is set to be twice the maximum protocol value in both directions
     x_min = 1e-3
@@ -438,13 +444,48 @@ def visualize_protocol(protocol, number_of_trajectories):
     fig.savefig("work_histogram.png", pad_inches=0.05, dpi=300)
     plt.close(fig)
 
-def calculate_order_parameter(protocol, number_of_trajectories=int(1e5)):
+def calculate_metrics(protocol, number_of_trajectories=int(1e5), work_mixing=1e-3):
     """
-    Calculate the order parameter for active Brownian particle transition.
+    Compute the individual performance metrics for a protocol.
 
-    The order parameter combines work minimization with radial distribution matching.
-    It evaluates how well the protocol achieves the desired active phase distribution
-    while minimizing the work cost of the transition.
+    Returns
+    -------
+    dict
+        delta: MSE between the final radial distribution and the target
+        mean_work: mean work <W>
+        mean_heat: mean heat <Q>
+        order_parameter: delta + work_mixing * mean_work
+    """
+    work, heat, positions = run_protocol(protocol, number_of_trajectories)
+    work, heat, positions = work.cpu(), heat.cpu(), positions.cpu()  # move to CPU: numpy cannot consume CUDA tensors
+    rs = torch.sqrt(positions[:,0]**2 + positions[:,1]**2).numpy()
+
+    # Histogram estimator identical to the C++ implementation:
+    # 100 bins on [0.001, 5]; counts normalized by the *total* number of
+    # trajectories; MSE taken over the bins present in target_p_r.dat.
+    bins, minpos, maxpos = 100, 0.001, 5.0
+    width = (maxpos - minpos) / bins
+    counts, _ = np.histogram(rs, bins=bins, range=(minpos, maxpos))
+    hist = counts / (len(rs) * width)
+    target = np.loadtxt("target_p_r.dat")
+    idx = np.round((target[:, 0] - minpos) / width - 0.5).astype(int)
+    sel = (idx >= 0) & (idx < bins)
+    delta = np.mean((hist[idx[sel]] - target[sel, 1])**2)
+
+    mean_work = torch.mean(work).item()
+    mean_heat = torch.mean(heat).item()
+    return {"delta": delta, "mean_work": mean_work, "mean_heat": mean_heat,
+            "order_parameter": delta + work_mixing * mean_work}
+
+
+def calculate_order_parameter(protocol, number_of_trajectories=int(1e5), work_mixing=1e-3):
+    """
+    Calculate the order parameter for the active Brownian particle transition.
+
+    The order parameter combines the distribution error Delta with the mean work:
+    op = Delta + work_mixing * <W>. The mixing factor is user-settable (see Ref. [14]
+    of the paper for a discussion of how its appropriate value depends on the
+    relative magnitudes of the quantities involved).
 
     Parameters
     ----------
@@ -452,55 +493,55 @@ def calculate_order_parameter(protocol, number_of_trajectories=int(1e5)):
         Control parameter values at each timestep
     number_of_trajectories : int, optional
         Number of trajectories to simulate (default: 1e5)
+    work_mixing : float, optional
+        Weight of <W> relative to Delta in the order parameter (default: 1e-3)
 
     Returns
     -------
     float
-        The calculated order parameter combining:
-        - Work penalty: scaled mean work done during transition
-        - Distribution error: MSE between final radial distribution and target
+        The order parameter Delta + work_mixing * <W>
     """
-    work, heat, positions = run_protocol(protocol, number_of_trajectories)
-    rs = np.sqrt(positions[:,0]**2 + positions[:,1]**2)
-    target = np.loadtxt("target_p_r.dat")
-    bin_centers = target[:,0]
-
-    bin_width = bin_centers[1] - bin_centers[0]
-    bin_edges = np.concatenate([
-        [bin_centers[0] - bin_width/2],  # left edge of first bin
-        bin_centers[:-1] + bin_width/2,  # edges between bins
-        [bin_centers[-1] + bin_width/2]  # right edge of last bin
-    ])
-
-    # Create histogram
-    hist_counts, _ = np.histogram(rs, bins=bin_edges, density = True)
-
-    return 1e-3*torch.mean(work).item() + np.mean((hist_counts - target[:,1])**2)
+    return calculate_metrics(protocol, number_of_trajectories, work_mixing)["order_parameter"]
 
 
-def final_answer(protocol):
+def final_answer(protocol, number_of_trajectories=int(1e6), work_mixing=1e-3):
     """
     Calculate the final performance metrics for the active Brownian particle protocol.
 
-    Runs a large-scale simulation to accurately estimate the order parameter,
-    which quantifies how well the protocol achieves the passive-to-active
-    transition while minimizing work and matching the target distribution.
+    Reports the individual quantities (Delta, <W>, <Q>) as well as the combined
+    order parameter, both to the console and to the file report_answer.dat.
 
     Parameters
     ----------
     protocol : torch.Tensor
         Control parameter values at each timestep
-
-    Returns
-    -------
-    None
-        Prints the order parameter value to the console
+    number_of_trajectories : int, optional
+        Number of trajectories to simulate (default: 1e6)
+    work_mixing : float, optional
+        Weight of <W> relative to Delta in the order parameter (default: 1e-3)
     """
-    # Run a large number of trajectories for statistical significance
-    # Print results with 6 decimal places of precision
-    print(f"order parameter = {calculate_order_parameter(protocol, number_of_trajectories=int(1e6))}")
+    m = calculate_metrics(protocol, number_of_trajectories, work_mixing)
+    line = (f"order parameter = {m['order_parameter']:.6g}, Delta = {m['delta']:.6g}, "
+            f"mean_work = {m['mean_work']:.6g}, mean_heat = {m['mean_heat']:.6g}")
+    with open("report_answer.dat", "w") as f:
+        f.write(line + "\n")
+    print(line)
 
 if __name__ == "__main__":
-    protocol = load_default_protocol()
-    visualize_protocol(protocol, int(1e5))
-    final_answer(protocol)
+    import argparse
+    parser = argparse.ArgumentParser(description="Active Brownian particle benchmark")
+    parser.add_argument("-p", "--protocol", default="default",
+                        help="protocol: 'default' or path to a protocol file")
+    parser.add_argument("-n", "--n-traj", type=int, default=int(1e6),
+                        help="number of trajectories for the final answer")
+    parser.add_argument("-m", "--work-mixing", type=float, default=1e-3,
+                        help="weight of <W> relative to Delta in the order parameter")
+    parser.add_argument("-v", "--visualize", action="store_true",
+                        help="make movies/histograms instead of computing the final answer")
+    args = parser.parse_args()
+
+    protocol = load_default_protocol() if args.protocol == "default" else load_protocol(args.protocol)
+    if args.visualize:
+        visualize_protocol(protocol, int(1e5))
+    else:
+        final_answer(protocol, args.n_traj, args.work_mixing)

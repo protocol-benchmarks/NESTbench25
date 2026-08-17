@@ -25,7 +25,8 @@ N = len(pos_files)
 # Set the font to Computer Modern (LaTeX's default font)
 plt.rcParams['font.family'] = 'serif'
 plt.rcParams['font.serif'] = 'Computer Modern'
-plt.rcParams['text.usetex'] = True
+import shutil
+plt.rcParams['text.usetex'] = shutil.which('latex') is not None  # fall back to mathtext if LaTeX is unavailable
 plt.rcParams['font.size'] = 16
 plt.rcParams['xtick.labelsize'] = 16
 plt.rcParams['ytick.labelsize'] = 16
@@ -53,14 +54,21 @@ for n in range(N):
         print(e)
         continue
 
+    # velocity histogram (essential degree of freedom in the underdamped case)
+    vel_file = f'report_velocity_time_{n}.dat'
+    try:
+        x_vel, y_vel = read_data(vel_file)
+    except RuntimeError:
+        x_vel, y_vel = None, None
+
     # Scale pos and boltz vertical values by 20
     y_pos_scaled = y_pos * 20
     y_boltz_scaled = y_boltz * 20
 
-    # Create a figure and axis with higher resolution
-    fig, ax = plt.subplots(figsize=(10.0267, 6.0267), dpi=300)  # Increase resolution with dpi and larger size
+    # Create a figure with position (left) and velocity (right) panels
+    fig, (ax, ax_v) = plt.subplots(1, 2, figsize=(12.0267, 6.0267), dpi=300)
 
-    # Plot the data
+    # Plot the position data
     ax.plot(x_pos, y_pos_scaled, 'g-', label='pos')
     ax.plot(x_boltz, y_boltz_scaled, 'k--', label='boltz')
     ax.plot(x_potential, y_potential, 'k', label='potential')
@@ -73,8 +81,15 @@ for n in range(N):
     ax.set_xticks([-5, 0, 5])
     ax.set_xlabel(r"$x$", fontsize=16)
 
-    # Add legend
     ax.set_yticks([])  # Remove vertical axis values
+
+    # Plot the velocity distribution
+    if x_vel is not None:
+        ax_v.plot(x_vel, y_vel, 'b-', label='vel')
+    ax_v.set_xlim(-25, 25)
+    ax_v.set_xlabel(r"$v$", fontsize=16)
+    ax_v.set_ylabel(r"$P(v)$", fontsize=16)
+    ax_v.set_yticks([])
 
     # Save the figure as a PNG
     output_file = f'output_{n}.png'
@@ -141,7 +156,7 @@ for filename in output_files:
 
 # Remove input data files
 for n in range(N):
-    for prefix in ['report_position_time_', 'report_boltz_time_', 'report_potential_time_']:
+    for prefix in ['report_position_time_', 'report_velocity_time_', 'report_boltz_time_', 'report_potential_time_']:
         try:
             os.remove(f'{prefix}{n}.dat')
         except FileNotFoundError:

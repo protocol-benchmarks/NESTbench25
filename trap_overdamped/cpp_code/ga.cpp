@@ -85,16 +85,25 @@ ssystem(st);
 snprintf(st,sizeof(st),"swarm_%d.sh",n);
 ofstream soutput(st,ios::out);
 
+//SLURM settings are read from environment variables so that the script
+//can be used on any cluster without editing the source code:
+//  NESTBENCH_SLURM_PARTITION, NESTBENCH_SLURM_ACCOUNT, NESTBENCH_SLURM_QOS, NESTBENCH_SLURM_TIME
+//unset variables are omitted from the generated script (the cluster default is used)
+const char *sl_partition=getenv("NESTBENCH_SLURM_PARTITION");
+const char *sl_account=getenv("NESTBENCH_SLURM_ACCOUNT");
+const char *sl_qos=getenv("NESTBENCH_SLURM_QOS");
+const char *sl_time=getenv("NESTBENCH_SLURM_TIME");
+if(sl_time==NULL){sl_time="36:00:00";}
+
 soutput << "#!/usr/bin/env bash" << endl;
 snprintf(st,sizeof(st),"#SBATCH --job-name=swarm_%d",n);
 soutput << st << endl;
-soutput << "#SBATCH --partition=lr7" << endl;
-soutput << "#SBATCH --account=nano" << endl;
-soutput << "#SBATCH --qos=lr_normal" << endl;
+if(sl_partition!=NULL){soutput << "#SBATCH --partition=" << sl_partition << endl;}
+if(sl_account!=NULL){soutput << "#SBATCH --account=" << sl_account << endl;}
+if(sl_qos!=NULL){soutput << "#SBATCH --qos=" << sl_qos << endl;}
 snprintf(st,sizeof(st),"#SBATCH --nodes=%d",1);
 soutput << st << endl;
-soutput << "#SBATCH --time=36:00:00" << endl;
-//soutput << "#SBATCH --mem=1000mb" << endl;
+soutput << "#SBATCH --time=" << sl_time << endl;
 soutput << "#SBATCH --ntasks=1" << endl;
 snprintf(st,sizeof(st),"./swarm_%d",n);
 soutput << st << endl;
@@ -111,7 +120,7 @@ snprintf(st,sizeof(st),"cp input_parameters.dat iteration_%d",n);
 ssystem(st);
 
 //copy code
-snprintf(st,sizeof(st),"cp ga_process.c iteration_%d",n);
+snprintf(st,sizeof(st),"cp ga_process.cpp iteration_%d",n);
 ssystem(st);
 
 snprintf(st,sizeof(st),"cp *engine* iteration_%d",n);
@@ -129,9 +138,9 @@ ssystem(st);
 //compile code
 snprintf(st,sizeof(st),
     "cd iteration_%d; "
-    "g++ -c engine_trap_overdamped.c -o engine_trap_overdamped.o; "
+    "g++ -DENGINE_LIBRARY -c engine_trap_overdamped.cpp -o engine_trap_overdamped.o; "
     "ar rcs libengine_trap_overdamped.a engine_trap_overdamped.o; "
-    "g++ -Wall -mcmodel=medium -o swarm_%d ga_process.c -L. -lengine_trap_overdamped -lm -O",
+    "g++ -Wall -mcmodel=medium -o swarm_%d ga_process.cpp -L. -lengine_trap_overdamped -lm -O",
     n, n);
 ssystem(st);
 cout << st << endl;

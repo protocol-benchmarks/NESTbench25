@@ -30,11 +30,25 @@ To run the simulation with the default protocol:
 ./sim
 ```
 
+By default this computes the final answer (the order parameter and related
+quantities) and writes it to `report_answer.dat`. Command-line options allow
+the protocol and key parameters to be changed without recompiling
+(run `./sim -h` for the full list):
+
+```bash
+./sim -p <protocol_file>     # use a protocol from a file (default: built-in default protocol)
+./sim -p input_control_parameters_learned.dat   # use the pre-learned protocol
+./sim -n 100000              # change the number of trajectories
+./sim -t <tf>                # change the trajectory time
+./sim -b <c_i,c_f,...>       # change the protocol boundary values
+./sim -v                     # generate movies/histograms instead (requires python + ffmpeg)
+```
+
 This will:
 1. Load the default protocol
 2. Run the simulation for the specified time
 3. Calculate the order parameter (transformation accuracy and work)
-4. Generate visualization files (`output_figure.pdf`, `output_movie.mp4`)
+4. (with `-v`) Generate visualization files (`output_figure.pdf`, `output_movie.mp4`)
 
 ### Using a Custom Protocol
 

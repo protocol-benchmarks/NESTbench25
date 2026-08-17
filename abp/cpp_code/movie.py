@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import shutil
 import glob
 import imageio
 import os
@@ -38,7 +39,7 @@ N = len(pos_files)
 # Set the font to Computer Modern (LaTeX's default font)
 plt.rcParams['font.family'] = 'serif'
 plt.rcParams['font.serif'] = 'Computer Modern'
-plt.rcParams['text.usetex'] = True
+plt.rcParams['text.usetex'] = shutil.which('latex') is not None  # fall back to mathtext if LaTeX is unavailable
 plt.rcParams['font.size'] = 16
 plt.rcParams['xtick.labelsize'] = 16
 plt.rcParams['ytick.labelsize'] = 16

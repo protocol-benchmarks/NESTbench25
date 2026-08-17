@@ -24,13 +24,14 @@ import torch
 import math
 import numpy as np
 import matplotlib.pyplot as plt
+import shutil
 import os
 import subprocess
 
 # Configure matplotlib for nicer plots
 plt.rcParams['font.family'] = 'serif'
 plt.rcParams['font.serif'] = 'Computer Modern'
-plt.rcParams['text.usetex'] = True  # Enable LaTeX rendering
+plt.rcParams['text.usetex'] = shutil.which('latex') is not None  # fall back to mathtext if LaTeX is unavailable
 plt.rcParams['font.size'] = 16
 plt.rcParams['xtick.labelsize'] = 16
 plt.rcParams['ytick.labelsize'] = 16
@@ -273,8 +274,8 @@ def visualize_protocol(protocol, number_of_trajectories):
     # Create plots directory if it doesn't exist
     os.makedirs('plots', exist_ok=True)
     fig, ax = plt.subplots(figsize=(6, 6))
-    plt.plot(protocol[:,0], protocol[:,1], color = "g")
-    # plt.plot(np.linspace(0,trajectory_time, number_of_steps+2), protocol[:,1], color = "b")
+    plt.plot(protocol[:,0].cpu(), protocol[:,1].cpu(), color = "g")
+    # plt.plot(np.linspace(0,trajectory_time, number_of_steps+2), protocol[:,1].cpu(), color = "b")
     plt.xlabel(r"$T$")
     plt.ylabel(r"$h$")
     fig.tight_layout()
@@ -285,6 +286,7 @@ def visualize_protocol(protocol, number_of_trajectories):
     entprod, lattices_to_visualize, parameters_to_visualize = run_protocol(
         protocol, number_of_trajectories, visualize=True
     )
+    entprod, lattices_to_visualize, parameters_to_visualize = entprod.cpu(), lattices_to_visualize.cpu(), parameters_to_visualize.cpu()  # move to CPU: numpy/matplotlib cannot consume CUDA tensors
 
     # Create 2x3 panel figure
 
@@ -294,7 +296,7 @@ def visualize_protocol(protocol, number_of_trajectories):
         panel_axes = panel_axes.flatten()
 
         # Add to 2x3 panel figure if this is a selected time point
-        panel_axes[3].plot(protocol[:,0], protocol[:,1], color = "k")
+        panel_axes[3].plot(protocol[:,0].cpu(), protocol[:,1].cpu(), color = "k")
         panel_axes[3].scatter(protocol[i,0], protocol[i,1], color = "k")
 
         panel_axes[3].set_xlabel(r"$T$")
@@ -379,9 +381,10 @@ def calculate_order_parameter(protocol, number_of_trajectories=int(1e5)):
         The mean entropy production (order parameter)
     """
     entprod = run_protocol(protocol, number_of_trajectories)
+    entprod = entprod.cpu()  # move to CPU: numpy/matplotlib cannot consume CUDA tensors
     return torch.mean(entprod).item()
 
-def final_answer(protocol):
+def final_answer(protocol, number_of_trajectories=int(1e6)):
     """
     Calculate the entropy production statistics with high precision.
 
@@ -400,11 +403,14 @@ def final_answer(protocol):
         Prints the mean entropy production value and standard error to the console
     """
     # Run a large number of trajectories for statistical significance
-    entprod = run_protocol(protocol, int(1e6))
+    n_samples = 100
+    per_sample = max(1, int(number_of_trajectories) // n_samples)
+    entprod = run_protocol(protocol, n_samples * per_sample)
+    entprod = entprod.cpu()  # move to CPU: numpy/matplotlib cannot consume CUDA tensors
 
-    # Reshape entropy production array into 100 batches of 10^4 trajectories each
+    # Reshape entropy production array into n_samples batches (default: 100 batches of 10^4)
     # This allows for better statistical analysis through batch means
-    entprod = torch.reshape(entprod, (int(1e2), int(1e4)))
+    entprod = torch.reshape(entprod, (n_samples, per_sample))
 
     # Calculate mean entropy production for each batch
     sample_means = torch.mean(entprod, axis=1)
@@ -420,10 +426,35 @@ def final_answer(protocol):
     # SE = σ/√n where σ is the standard deviation and n is the number of batches
     standard_error = std_of_means / np.sqrt(100)
 
-    # Print results with 6 decimal places of precision
-    print(f"order parameter = {overall_mean:.6f} ± {standard_error:.6f}, n_samples = {100}")
+    # Report results to the console and to a dedicated output file
+    line = f"order parameter = {overall_mean:.6f} ± {standard_error:.6f}, n_samples = {n_samples}"
+    with open("report_answer.dat", "w") as f:
+        f.write(line + "\n")
+    print(line)
+
+def set_boundary_conditions(spec):
+    """Set protocol boundary values from a comma-separated list T_i,T_f,h_i,h_f."""
+    vals = [float(x) for x in spec.split(",")]
+    for j, v in enumerate(vals[:2 * number_of_control_parameters]):
+        cee_boundary[j % 2, j // 2] = v
 
 if __name__ == "__main__":
-    protocol = load_default_protocol()
-    visualize_protocol(protocol, int(1e4))
-    final_answer(protocol)
+    import argparse
+    parser = argparse.ArgumentParser(description="Ising magnetization-reversal benchmark")
+    parser.add_argument("-p", "--protocol", default="default",
+                        help="protocol: 'default' or path to a protocol file")
+    parser.add_argument("-n", "--n-traj", type=int, default=int(1e6),
+                        help="total number of trajectories for the final answer")
+    parser.add_argument("-b", "--boundary", default=None, metavar="T_i,T_f,h_i,h_f",
+                        help="initial,final values of temperature and magnetic field")
+    parser.add_argument("-v", "--visualize", action="store_true",
+                        help="make movies/histograms instead of computing the final answer")
+    args = parser.parse_args()
+
+    if args.boundary:
+        set_boundary_conditions(args.boundary)
+    protocol = load_default_protocol() if args.protocol == "default" else load_protocol(args.protocol)
+    if args.visualize:
+        visualize_protocol(protocol, int(1e4))
+    else:
+        final_answer(protocol, args.n_traj)

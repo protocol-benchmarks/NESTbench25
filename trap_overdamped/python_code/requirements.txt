@@ -5,3 +5,7 @@ tqdm>=4.67.1
 matplotlib>=3.10.3
 numpy>=2.3.0
 torch>=2.7.1
+
+# NOTE (system dependencies, not installable via pip):
+#   - ffmpeg is required for movie generation (visualization only)
+#   - LaTeX is optional; if absent, plots fall back to matplotlib's mathtext

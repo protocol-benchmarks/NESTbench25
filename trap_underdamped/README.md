@@ -45,3 +45,10 @@ $$W^* = \frac{k\lambda(t_f)^2}{2 + Q\omega_0 t_f} \approx 2.90787$$
 
 in units of $k_B T$.
 
+
+## Velocity distribution
+
+Because the dynamics is underdamped, the velocity is an essential degree of
+freedom. The visualization mode of both implementations (`./sim -v` or
+`python engine_trap_underdamped.py -v`) records and displays the evolution of
+the velocity distribution alongside the position distribution.

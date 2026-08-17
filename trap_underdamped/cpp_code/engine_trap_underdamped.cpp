@@ -100,10 +100,11 @@ static int q_record_trajectory=0;
 
 static int tau_last_picture_update;
 static double position_time[n_traj_pictures][number_of_pictures];
+static double velocity_time[n_traj_pictures][number_of_pictures]; //velocity is an essential degree of freedom in the underdamped case
 static double picture_update_time=trajectory_time/(1.0*number_of_pictures);
 
 //functions void
-static void initialize(void);
+static void initialize(void) __attribute__((unused)); //only called from main(); unused in library builds
 void equilibrate(void);
 void final_answer(void); //100 instances of the order parameter calculated using 10^4 trajectories
 void langevin_step(void);
@@ -118,6 +119,7 @@ void output_trajectory_data(void);
 void output_optimal_protocol(void);
 void output_potential(int time_slice);
 void output_histogram_position(int time_slice);
+void output_histogram_velocity(int time_slice); //velocity-distribution evolution
 void make_work_histogram(double *work_values,int n_traj);
 
 //functions double
@@ -137,18 +139,95 @@ rng_engine.seed(static_cast<uint64_t>(time(NULL)));
 
 }
 
+//---------------------------------------------------------------
+//run-time configuration (see command-line options in main, below)
+//---------------------------------------------------------------
+
+static char protocol_filename[256]="input_control_parameters.dat";
+static long fa_n_traj_override=0;
+static long fa_n_samples_override=0;
+
+//load a protocol from a user-specified file
+void load_protocol_from(const char *filename){
+snprintf(protocol_filename,sizeof(protocol_filename),"%s",filename);
+load_protocol();
+}
+
+//set trajectory time (and recompute derived time intervals)
+void set_trajectory_time(double tf){
+if(tf<=0){return;}
+trajectory_time=tf;
+protocol_update_time=trajectory_time/(1.0*number_of_protocol_timepoints);
+picture_update_time=trajectory_time/(1.0*number_of_pictures);
+delta_vee[0]=cee_boundary[0][1]/(2.0/(quality*omega_0)+trajectory_time);
+delta_vee[1]=-delta_vee[0];
+}
+
+//set protocol boundary values from a comma-separated list c0_i,c0_f,c1_i,c1_f,...
+void set_boundary_conditions(const char *spec){
+char buf[256];
+snprintf(buf,sizeof(buf),"%s",spec);
+int j=0;
+for(char *tok=strtok(buf,",");tok!=NULL && j<2*number_of_control_parameters;tok=strtok(NULL,",")){
+cee_boundary[j/2][j%2]=atof(tok);
+j++;
+}
+delta_vee[0]=cee_boundary[0][1]/(2.0/(quality*omega_0)+trajectory_time);
+delta_vee[1]=-delta_vee[0];
+}
+
+//final_answer with user-specified sampling (0 = engine default)
+void final_answer_n(long n_traj,long n_samples){
+fa_n_traj_override=n_traj;
+fa_n_samples_override=n_samples;
+final_answer();
+fa_n_traj_override=0;
+fa_n_samples_override=0;
+}
+
 //
 // MAIN_BLOCK_START
-// To compile as a library, comment out everything between here, and DOWN THERE vvv
-//  
+// main() is compiled only for the standalone build (make standalone);
+// the library build (make library) omits it automatically.
+//
+#ifndef ENGINE_LIBRARY
 
-int main(void){
+static void usage(const char *prog){
+fprintf(stderr,"usage: %s [options]\n",prog);
+fprintf(stderr,"  -p default|<file>  protocol: built-in default, or read from file (default: default)\n");
+fprintf(stderr,"  -n <n_traj>        trajectories per sample in final_answer (default: 10000)\n");
+fprintf(stderr,"  -s <n_samples>     number of samples in final_answer (default: 100)\n");
+fprintf(stderr,"  -t <tf>            trajectory time (microseconds) (default: engine default)\n");
+fprintf(stderr,"  -b <c_i,c_f,...>   initial,final values of each control parameter\n");
+fprintf(stderr,"  -v                 make movies/histograms instead of computing final answer\n");
+fprintf(stderr,"results are written to report_answer.dat\n");
+}
+
+int main(int argc,char *argv[]){
+
+const char *protocol_file=NULL;
+long n_traj=0,n_samples=0;
+int q_visualize=0;
+int c;
+
+while((c=getopt(argc,argv,"p:n:s:t:b:vh"))!=-1){
+switch(c){
+case 'p': if(strcmp(optarg,"default")!=0){protocol_file=optarg;} break;
+case 'n': n_traj=atol(optarg); break;
+case 's': n_samples=atol(optarg); break;
+case 't': set_trajectory_time(atof(optarg)); break;
+case 'b': set_boundary_conditions(optarg); break;
+case 'v': q_visualize=1; break;
+case 'h': usage(argv[0]); return 0;
+default: usage(argv[0]); return 1;
+}}
 
 //seed the RN generator
 initialize();
 
-//load default protocol
-load_default_protocol();
+//load protocol (default, or from user-supplied file)
+if(protocol_file==NULL){load_default_protocol();}
+else{load_protocol_from(protocol_file);}
 
 //write optimal protocol to file
 output_optimal_protocol();
@@ -156,15 +235,15 @@ output_optimal_protocol();
 //write current protocol to file
 output_protocol();
 
-//calculate averages and distributions
-visualize_protocol();
+if(q_visualize){visualize_protocol();}
+else{final_answer_n(n_traj,n_samples);}
 
 return 0;
 
 }
 
+#endif //ENGINE_LIBRARY
 //
-// To compile as a library, comment out everything betweehn here, and UP THERE ^^^
 // MAIN_BLOCK_END
 //
 
@@ -327,7 +406,7 @@ void load_protocol(void){
 //protocol for 0^+ < t < tf^- (boundary conditions for t=0 and t=tf enforced elsewhere)
 
 int i,j;
-snprintf(st, sizeof(st), "input_control_parameters.dat");
+snprintf(st, sizeof(st), "%s", protocol_filename);
 ifstream in;
 
 in.open((st));
@@ -379,8 +458,8 @@ ofstream out1(st,ios::out);
 
 
 int i;
-int n_traj=10000;
-int n_samples=100;
+long n_traj = (fa_n_traj_override>0) ? fa_n_traj_override : 10000;
+long n_samples = (fa_n_samples_override>0) ? fa_n_samples_override : 100;
 
 double op;
 double op_local=0.0;
@@ -436,6 +515,9 @@ q_record_trajectory=0;
 //position histograms
 for(i=0;i<number_of_pictures;i++){output_histogram_position(i);}
 
+//velocity histograms
+for(i=0;i<number_of_pictures;i++){output_histogram_velocity(i);}
+
 //work histogram
 make_work_histogram(work_values,n_traj_pictures);
 free(work_values);
@@ -463,6 +545,7 @@ tau_last_picture_update=picture_index;
 if(picture_index>=number_of_pictures){picture_index=number_of_pictures-1;}
 
 position_time[traj_number][picture_index]=position;
+velocity_time[traj_number][picture_index]=velocity;
 
 }}
 
@@ -502,7 +585,8 @@ if(histo_width<1e-6){histo_width=1e-6;}
 for(i=0;i<n_traj_pictures;i++){
 
 nbin=(int) (1.0*bins*(position_time[i][time_slice]-minpos)/(maxpos-minpos));
-if(nbin==bins){nbin--;}
+if(nbin<0){nbin=0;}
+if(nbin>=bins){nbin=bins-1;}
 
 histo[nbin]+=1.0/(1.0*n_traj_pictures);
 
@@ -521,6 +605,63 @@ if(histo[i]>0.5/(1.0*n_traj_pictures)){
 x1=maxpos*i/(1.0*bins)+minpos*(1.0-i/(1.0*bins))+0.5*(maxpos-minpos)/(1.0*bins);
 
 out1 << x1 << " " << histo[i]/histo_width << endl;
+
+}
+}
+
+}
+
+
+void output_histogram_velocity(int time_slice){
+
+snprintf(st,sizeof(st),"report_velocity_time_%d.dat",time_slice);
+ofstream out1(st,ios::out);
+
+int i;
+int nbin=0;
+const int bins=50;
+
+double histo[bins];
+double histo_width;
+double maxvel=0.0;
+double minvel=0.0;
+
+//velocity recorded elsewhere
+for(i=0;i<bins;i++){histo[i]=0.0;}
+
+for(i=0;i<n_traj_pictures;i++){
+
+if(i==0){maxvel=velocity_time[i][time_slice];minvel=velocity_time[i][time_slice];}
+else{
+
+if(velocity_time[i][time_slice]>maxvel){maxvel=velocity_time[i][time_slice];}
+if(velocity_time[i][time_slice]<minvel){minvel=velocity_time[i][time_slice];}
+}}
+
+//record width
+histo_width=(maxvel-minvel)/(1.0*bins);
+
+//safeguard
+if(histo_width<1e-6){histo_width=1e-6;}
+
+for(i=0;i<n_traj_pictures;i++){
+
+nbin=(int) (1.0*bins*(velocity_time[i][time_slice]-minvel)/(maxvel-minvel));
+if(nbin<0){nbin=0;}
+if(nbin>=bins){nbin=bins-1;}
+
+histo[nbin]+=1.0/(1.0*n_traj_pictures);
+
+}
+
+//output
+double v1;
+for(i=0;i<bins;i++){
+
+if(histo[i]>0.5/(1.0*n_traj_pictures)){
+v1=maxvel*i/(1.0*bins)+minvel*(1.0-i/(1.0*bins))+0.5*(maxvel-minvel)/(1.0*bins);
+
+out1 << v1 << " " << histo[i]/histo_width << endl;
 
 }
 }
@@ -673,13 +814,16 @@ void make_work_histogram(double *work_values,int n_traj) {
         if (work_values[i] > work_max) work_max = work_values[i];
     }
 
-    double bin_width = (work_max - work_min) / bins;
-    if (bin_width < 1e-6) bin_width = 1e-6; // safeguard
+    double work_range = work_max - work_min;
+    if (work_range < 1e-12) work_range = 1e-12; // safeguard: degenerate distribution (e.g. W identically zero)
+
+    double bin_width = work_range / bins;
 
     // fill histogram
     for (int i = 0; i < n_traj; i++) {
-        int bin = (int)((work_values[i] - work_min) / (work_max - work_min) * bins);
-        if (bin == bins) bin--; // include upper edge
+        int bin = (int)((work_values[i] - work_min) / work_range * bins);
+        if (bin < 0) bin = 0;
+        if (bin >= bins) bin = bins - 1; // include upper edge
         histo[bin] += 1.0 / (n_traj * bin_width);
     }
 

@@ -100,7 +100,7 @@ static double position_time[n_traj_pictures][number_of_pictures];
 static double picture_update_time=(trajectory_time+trajectory_time_quiescent)/(1.0*number_of_pictures);
 
 //functions void
-static void initialize(void);
+static void initialize(void) __attribute__((unused)); //only called from main(); unused in library builds
 void equilibrate(void);
 void final_answer(void); //100 instances of the order parameter calculated using 10^4 trajectories
 void langevin_step(void);
@@ -139,23 +139,104 @@ rng_engine.seed(static_cast<uint64_t>(time(NULL)));
 
 }
 
+//---------------------------------------------------------------
+//run-time configuration (see command-line options in main, below)
+//---------------------------------------------------------------
+
+static char protocol_filename[256]="input_control_parameters.dat";
+static long fa_n_traj_override=0;
+static long fa_n_samples_override=0;
+
+//load a protocol from a user-specified file
+void load_protocol_from(const char *filename){
+snprintf(protocol_filename,sizeof(protocol_filename),"%s",filename);
+load_protocol();
+}
+
+//set trajectory time (and recompute derived time intervals)
+void set_trajectory_time(double tf){
+if(tf<=0){return;}
+trajectory_time=tf;
+protocol_update_time=trajectory_time/(1.0*number_of_protocol_timepoints);
+picture_update_time=trajectory_time/(1.0*number_of_pictures);
+}
+
+//set protocol boundary values from a comma-separated list c0_i,c0_f,c1_i,c1_f,...
+void set_boundary_conditions(const char *spec){
+char buf[256];
+snprintf(buf,sizeof(buf),"%s",spec);
+int j=0;
+for(char *tok=strtok(buf,",");tok!=NULL && j<2*number_of_control_parameters;tok=strtok(NULL,",")){
+cee_boundary[j/2][j%2]=atof(tok);
+j++;
+}
+}
+
+//final_answer with user-specified sampling (0 = engine default)
+void final_answer_n(long n_traj,long n_samples){
+fa_n_traj_override=n_traj;
+fa_n_samples_override=n_samples;
+final_answer();
+fa_n_traj_override=0;
+fa_n_samples_override=0;
+}
+
 //
 // MAIN_BLOCK_START
-// To compile as a library, comment out everything between here, and DOWN THERE vvv
+// main() is compiled only for the standalone build (make standalone);
+// the library build (make library) omits it automatically.
 //
+#ifndef ENGINE_LIBRARY
 
-int main(void){
+static void usage(const char *prog){
+fprintf(stderr,"usage: %s [options]\n",prog);
+fprintf(stderr,"  -p default|<file>  protocol: built-in default, or read from file (default: default)\n");
+fprintf(stderr,"  -n <n_traj>        trajectories per sample in final_answer (default: 10000)\n");
+fprintf(stderr,"  -s <n_samples>     number of samples in final_answer (default: 100)\n");
+fprintf(stderr,"  -t <tf>            trajectory time (microseconds) (default: engine default)\n");
+fprintf(stderr,"  -b <c_i,c_f,...>   initial,final values of each control parameter\n");
+fprintf(stderr,"  -v                 make movies/histograms instead of computing final answer\n");
+fprintf(stderr,"results are written to report_answer.dat\n");
+}
 
+int main(int argc,char *argv[]){
+
+const char *protocol_file=NULL;
+long n_traj=0,n_samples=0;
+int q_visualize=0;
+int c;
+
+while((c=getopt(argc,argv,"p:n:s:t:b:vh"))!=-1){
+switch(c){
+case 'p': if(strcmp(optarg,"default")!=0){protocol_file=optarg;} break;
+case 'n': n_traj=atol(optarg); break;
+case 's': n_samples=atol(optarg); break;
+case 't': set_trajectory_time(atof(optarg)); break;
+case 'b': set_boundary_conditions(optarg); break;
+case 'v': q_visualize=1; break;
+case 'h': usage(argv[0]); return 0;
+default: usage(argv[0]); return 1;
+}}
+
+//seed the RN generator
 initialize();
-load_default_protocol();
-visualize_protocol();
+
+//load protocol (default, or from user-supplied file)
+if(protocol_file==NULL){load_default_protocol();}
+else{load_protocol_from(protocol_file);}
+
+//write current protocol to file
+output_protocol();
+
+if(q_visualize){visualize_protocol();}
+else{final_answer_n(n_traj,n_samples);}
 
 return 0;
 
 }
 
+#endif //ENGINE_LIBRARY
 //
-// To compile as a library, comment out everything betweehn here, and UP THERE ^^^
 // MAIN_BLOCK_END
 //
 
@@ -344,7 +425,7 @@ void load_protocol(void){
 //protocol for 0^+ < t < tf^- (boundary conditions for t=0 and t=tf enforced elsewhere)
 
 int i,j;
-snprintf(st, sizeof(st), "input_control_parameters.dat");
+snprintf(st, sizeof(st), "%s", protocol_filename);
 ifstream in;
 
 in.open((st));
@@ -427,8 +508,8 @@ ofstream out1(st,ios::out);
 
 
 int i;
-int n_traj=10000;
-int n_samples=100;
+long n_traj = (fa_n_traj_override>0) ? fa_n_traj_override : 10000;
+long n_samples = (fa_n_samples_override>0) ? fa_n_samples_override : 100;
 
 double op;
 double op_local=0.0;
@@ -552,7 +633,8 @@ if(histo_width<1e-6){histo_width=1e-6;}
 for(i=0;i<n_traj_pictures;i++){
 
 nbin=(int) (1.0*bins*(position_time[i][time_slice]-minpos)/(maxpos-minpos));
-if(nbin==bins){nbin--;}
+if(nbin<0){nbin=0;}
+if(nbin>=bins){nbin=bins-1;}
 
 histo[nbin]+=1.0/(1.0*n_traj_pictures);
 
@@ -723,13 +805,16 @@ void make_work_histogram(double *work_values,int n_traj) {
         if (work_values[i] > work_max) work_max = work_values[i];
     }
 
-    double bin_width = (work_max - work_min) / bins;
-    if (bin_width < 1e-6) bin_width = 1e-6; // safeguard
+    double work_range = work_max - work_min;
+    if (work_range < 1e-12) work_range = 1e-12; // safeguard: degenerate distribution (e.g. W identically zero)
+
+    double bin_width = work_range / bins;
 
     // fill histogram
     for (int i = 0; i < n_traj; i++) {
-        int bin = (int)((work_values[i] - work_min) / (work_max - work_min) * bins);
-        if (bin == bins) bin--; // include upper edge
+        int bin = (int)((work_values[i] - work_min) / work_range * bins);
+        if (bin < 0) bin = 0;
+        if (bin >= bins) bin = bins - 1; // include upper edge
         histo[bin] += 1.0 / (n_traj * bin_width);
     }
 

@@ -1,4 +1,4 @@
-# Python requirements for Ising Model Simulation
+# Python requirements for the trap underdamped visualization scripts (movie.py)
 # Usage: pip install -r requirements.txt
 
 # Core visualization libraries
@@ -12,3 +12,7 @@ imageio-ffmpeg>=0.4.7
 # Optional dependencies for improved performance
 pillow>=9.0.0  # For image processing
 psutil>=5.9.0  # For system monitoring during heavy computations
+
+# NOTE (system dependencies, not installable via pip):
+#   - ffmpeg is required for movie generation
+#   - LaTeX is optional; if absent, plots fall back to matplotlib's mathtext
