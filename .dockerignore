@@ -1,0 +1,16 @@
+.git
+.gitignore
+.pytest_cache
+__pycache__
+*.pyc
+*.o
+*.a
+sim
+ga
+ga_process
+deschamps
+report_*
+output_figure*.pdf
+output_movie*.mp4
+Dockerfile
+Dockerfile.cpp

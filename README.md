@@ -55,6 +55,29 @@ The Python engines run on CPU or CUDA automatically.
   settings (partition/account/qos) from `NESTBENCH_SLURM_*` environment
   variables or `sbatch` command-line flags; nothing is hard-coded.
 
+## Docker
+
+Two containerized environments are provided for fully reproducible runs:
+
+```bash
+# Full image: C++ engines, Python (CPU PyTorch) engines, ffmpeg, and the test suite
+docker build -t nestbench25 .
+docker run --rm nestbench25                     # runs the quick test suite
+docker run --rm -w /nestbench/erasure/cpp_code nestbench25 \
+    sh -c "./sim -p input_control_parameters_learned.dat && cat report_answer.dat"
+docker run --rm -w /nestbench/abp/python_code nestbench25 \
+    python engine_abp.py -n 10000
+
+# Minimal C++-only image (no Python; much smaller and faster to build)
+docker build -f Dockerfile.cpp -t nestbench25-cpp .
+docker run --rm -w /nestbench/ising/cpp_code nestbench25-cpp \
+    sh -c "./sim -n 100 -s 10 && cat report_answer.dat"
+```
+
+All engines are pre-built inside the images. Results are written to
+`report_answer.dat` in the engine's directory; mount a volume (`-v`) to keep
+outputs on the host.
+
 ## Tests
 
 An automated test suite (pytest) checks that every C++ engine builds and runs,
