@@ -470,6 +470,20 @@ def final_answer(protocol, number_of_trajectories=int(1e6)):
         f.write(line + "\n")
     print(line)
 
+def set_trajectory_time(tf):
+    """Set the protocol duration t_f and recompute the number of integration steps."""
+    global trajectory_time, number_of_steps
+    trajectory_time = float(tf)
+    number_of_steps = int(trajectory_time / timestep)
+
+
+def set_boundary_conditions(spec):
+    """Set protocol boundary values from a comma-separated list lambda_i,lambda_f."""
+    vals = [float(x) for x in spec.split(",")]
+    for j, v in enumerate(vals[:2 * number_of_control_parameters]):
+        cee_boundary[j % 2, j // 2] = v
+
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Overdamped trap benchmark")
@@ -479,8 +493,16 @@ if __name__ == "__main__":
                         help="total number of trajectories for the final answer")
     parser.add_argument("-v", "--visualize", action="store_true",
                         help="make movies/histograms instead of computing the final answer")
+    parser.add_argument("-t", "--trajectory-time", type=float, default=None,
+                        help="protocol duration t_f (default 1.0)")
+    parser.add_argument("-b", "--boundary", default=None, metavar="lambda_i,lambda_f",
+                        help="initial,final trap positions")
     args = parser.parse_args()
 
+    if args.trajectory_time:
+        set_trajectory_time(args.trajectory_time)
+    if args.boundary:
+        set_boundary_conditions(args.boundary)
     protocol = load_default_protocol() if args.protocol == "default" else load_protocol(args.protocol)
     if args.visualize:
         visualize_protocol(protocol, int(1e5))

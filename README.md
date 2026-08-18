@@ -40,7 +40,7 @@ Python (each `<problem>/python_code` directory):
 ```bash
 pip install -r requirements.txt   # torch, numpy, matplotlib
 python engine_<problem>.py        # default protocol; results printed and written to report_answer.dat
-python engine_<problem>.py -h     # same options as the C++ code
+python engine_<problem>.py -h     # same core options as the C++ code (-p, -n, -t, -b, -v; -s is C++-only)
 ```
 
 The Python engines run on CPU or CUDA automatically.

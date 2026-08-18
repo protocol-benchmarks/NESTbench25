@@ -498,6 +498,27 @@ def final_answer(protocol, kick_velocity= False, number_of_trajectories=int(1e6)
         f.write(line + "\n")
     print(line)
 
+def _update_kick_magnitude():
+    vee_boundary[0] = cee_boundary[1][0] / (2.0 / (quality * omega_0) + trajectory_time)
+    vee_boundary[1] = -cee_boundary[1][0] / (2.0 / (quality * omega_0) + trajectory_time)
+
+
+def set_trajectory_time(tf):
+    """Set the protocol duration t_f, recomputing the step count and kick magnitude."""
+    global trajectory_time, number_of_steps
+    trajectory_time = float(tf)
+    number_of_steps = int(trajectory_time / timestep)
+    _update_kick_magnitude()
+
+
+def set_boundary_conditions(spec):
+    """Set protocol boundary values from a comma-separated list lambda_i,lambda_f."""
+    vals = [float(x) for x in spec.split(",")]
+    for j, v in enumerate(vals[:2 * number_of_control_parameters]):
+        cee_boundary[j % 2, j // 2] = v
+    _update_kick_magnitude()
+
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Underdamped trap benchmark")
@@ -509,8 +530,16 @@ if __name__ == "__main__":
                         help="disable the velocity kicks applied with the default protocol")
     parser.add_argument("-v", "--visualize", action="store_true",
                         help="make movies/histograms instead of computing the final answer")
+    parser.add_argument("-t", "--trajectory-time", type=float, default=None,
+                        help="protocol duration t_f (default 0.15 x 2 pi/omega_0)")
+    parser.add_argument("-b", "--boundary", default=None, metavar="lambda_i,lambda_f",
+                        help="initial,final trap positions")
     args = parser.parse_args()
 
+    if args.trajectory_time:
+        set_trajectory_time(args.trajectory_time)
+    if args.boundary:
+        set_boundary_conditions(args.boundary)
     kick = not args.no_kick
     protocol = load_default_protocol() if args.protocol == "default" else load_protocol(args.protocol)
     if args.visualize:

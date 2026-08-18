@@ -151,7 +151,10 @@ def load_default_protocol():
     # Initialize protocol tensor with zeros
     cee = torch.zeros(number_of_steps+2, number_of_control_parameters, device=device)
 
-    cee[1:-1] = torch.from_numpy(np.loadtxt("default_protocol.dat")[::10])
+    # resample the stored protocol (1000 rows) onto the current number of sweeps
+    data = np.loadtxt("default_protocol.dat")
+    indices = np.linspace(0, len(data) - 1, number_of_steps, dtype=int)
+    cee[1:-1] = torch.from_numpy(data[indices])
     # Set boundary conditions
     cee[0, :] = cee_boundary[0, :]  # Initial value
     cee[-1, :] = cee_boundary[-1,:]  # Final value
@@ -438,6 +441,12 @@ def set_boundary_conditions(spec):
     for j, v in enumerate(vals[:2 * number_of_control_parameters]):
         cee_boundary[j % 2, j // 2] = v
 
+def set_trajectory_time(sweeps):
+    """Set the number of Monte Carlo sweeps over which the protocol runs."""
+    global number_of_steps
+    number_of_steps = int(float(sweeps))
+
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Ising magnetization-reversal benchmark")
@@ -445,12 +454,16 @@ if __name__ == "__main__":
                         help="protocol: 'default' or path to a protocol file")
     parser.add_argument("-n", "--n-traj", type=int, default=int(1e6),
                         help="total number of trajectories for the final answer")
+    parser.add_argument("-t", "--trajectory-time", type=float, default=None,
+                        help="number of Monte Carlo sweeps (default 100)")
     parser.add_argument("-b", "--boundary", default=None, metavar="T_i,T_f,h_i,h_f",
                         help="initial,final values of temperature and magnetic field")
     parser.add_argument("-v", "--visualize", action="store_true",
                         help="make movies/histograms instead of computing the final answer")
     args = parser.parse_args()
 
+    if args.trajectory_time:
+        set_trajectory_time(args.trajectory_time)
     if args.boundary:
         set_boundary_conditions(args.boundary)
     protocol = load_default_protocol() if args.protocol == "default" else load_protocol(args.protocol)
