@@ -532,7 +532,6 @@ def final_answer(protocol, number_of_trajectories=int(1e6)):
 
     # Report results to the console and to a dedicated output file
     line = f"order parameter = {overall_mean:.6f} ± {standard_error:.6f}, n_samples = {n_samples}"
-    line += f", mean_work = {torch.mean(work).item():.4f}"
     with open("report_answer.dat", "w") as f:
         f.write(line + "\n")
     print(line)

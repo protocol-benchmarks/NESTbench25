@@ -78,8 +78,6 @@ static double position[2];
 static double work;
 static double heat; //energy change due to position updates: heat = Delta U - work
 static double mean_work;
-static double mean_heat;
-static double delta_global;
 
 //for visualization
 static const int number_of_pictures=150;
@@ -436,7 +434,6 @@ std::vector<double> r_values(n_traj);
 double op;
 double delta;
 mean_work=0.0;
-mean_heat=0.0;
 
 //record values of r(tf)
 for(i=0;i<n_traj;i++){
@@ -444,13 +441,11 @@ for(i=0;i<n_traj;i++){
 run_trajectory();
 r_values[i]=sqrt(position[0]*position[0]+position[1]*position[1]);
 mean_work+=work/(1.0*n_traj);
-mean_heat+=heat/(1.0*n_traj);
 
 }
 
 //calculate ||P(r(tf)-P_target(r)||
 delta=histogram_l2_error(r_values.data(),n_traj);
-delta_global=delta;
 
 op=delta+work_mixing*mean_work;
 
@@ -468,7 +463,7 @@ ofstream out1(st,ios::out);
 long n_traj = (fa_n_traj_override>0) ? fa_n_traj_override : 1000000;
 
 double op=calculate_order_parameter(n_traj);
-out1 << " order parameter = " << op << ", Delta = " << delta_global << ", mean_work = " << mean_work << ", mean_heat = " << mean_heat << endl;
+out1 << " order parameter = " << op << endl;
 
 }
 

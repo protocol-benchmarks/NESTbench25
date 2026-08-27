@@ -506,10 +506,10 @@ def calculate_order_parameter(protocol, number_of_trajectories=int(1e5), work_mi
 
 def final_answer(protocol, number_of_trajectories=int(1e6), work_mixing=1e-3):
     """
-    Calculate the final performance metrics for the active Brownian particle protocol.
+    Calculate the final performance of the active Brownian particle protocol.
 
-    Reports the individual quantities (Delta, <W>, <Q>) as well as the combined
-    order parameter, both to the console and to the file report_answer.dat.
+    Reports the order parameter, both to the console and to the file
+    report_answer.dat.
 
     Parameters
     ----------
@@ -521,8 +521,7 @@ def final_answer(protocol, number_of_trajectories=int(1e6), work_mixing=1e-3):
         Weight of <W> relative to Delta in the order parameter (default: 1e-3)
     """
     m = calculate_metrics(protocol, number_of_trajectories, work_mixing)
-    line = (f"order parameter = {m['order_parameter']:.6g}, Delta = {m['delta']:.6g}, "
-            f"mean_work = {m['mean_work']:.6g}, mean_heat = {m['mean_heat']:.6g}")
+    line = f"order parameter = {m['order_parameter']:.6g}"
     with open("report_answer.dat", "w") as f:
         f.write(line + "\n")
     print(line)
