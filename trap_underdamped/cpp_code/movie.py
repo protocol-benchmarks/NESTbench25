@@ -86,8 +86,12 @@ for n in range(N):
     # Plot the velocity distribution
     if x_vel is not None:
         ax_v.plot(x_vel, y_vel, 'b-', label='vel')
-    ax_v.set_xlim(-25, 25)
-    ax_v.set_xlabel(r"$v$", fontsize=16)
+    # velocities are written in units of the thermal velocity sigma_0*omega_0, in which the
+    # equilibrium distribution is a unit-variance Gaussian (peak height ~0.4)
+    ax_v.set_xlim(-10, 10)
+    ax_v.set_ylim(0, 0.6)
+    ax_v.set_xticks([-5, 0, 5])
+    ax_v.set_xlabel(r"$v/(\sigma_0 \omega_0)$", fontsize=16)
     ax_v.set_ylabel(r"$P(v)$", fontsize=16)
     ax_v.set_yticks([])
 

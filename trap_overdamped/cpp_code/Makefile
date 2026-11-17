@@ -12,7 +12,7 @@
 #   - 'library' builds object file and static library for linking
 
 CXX = g++
-CXXFLAGS = -Wall -O
+CXXFLAGS = -Wall -O2
 AR = ar
 ARFLAGS = rcs
 LIBNAME = libengine_trap_overdamped.a

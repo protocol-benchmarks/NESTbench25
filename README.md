@@ -28,7 +28,9 @@ modification is needed to change them:
 
 ```bash
 ./sim -p <file>          # protocol from a file (e.g. input_control_parameters_learned.dat)
-./sim -n <n_traj>        # number of trajectories
+./sim -n <n_traj>        # number of trajectories per sample
+./sim -s <n_samples>     # number of independent samples (the uncertainty is the standard error over samples)
+./sim -r <seed>          # random-number seed, for a reproducible run
 ./sim -t <tf>            # trajectory time
 ./sim -b <c_i,c_f,...>   # protocol boundary values (e.g. -b 0.7,0.7,-1,1 for ising T_i,T_f,h_i,h_f)
 ./sim -v                 # generate movies/histograms instead of the final answer
@@ -40,10 +42,23 @@ Python (each `<problem>/python_code` directory):
 ```bash
 pip install -r requirements.txt   # torch, numpy, matplotlib
 python engine_<problem>.py        # default protocol; results printed and written to report_answer.dat
-python engine_<problem>.py -h     # same core options as the C++ code (-p, -n, -t, -b, -v; -s is C++-only)
+python engine_<problem>.py -h     # same core options as the C++ code (-p, -n, -t, -b, -r, -v; -s is C++-only)
 ```
 
 The Python engines run on CPU or CUDA automatically.
+
+### Uncertainties and reproducibility
+
+`report_answer.dat` reports the order parameter as `value ± uncertainty`, where
+the uncertainty is the standard error of the mean over independent samples.
+The C++ `abp` engine defaults to a single sample of 10^6 trajectories (its
+order parameter is a histogram distance, which is biased at small sample
+sizes), so it reports `± 0` unless `-s` is set to more than 1.
+
+By default every run uses a different random-number seed (C++: seeded once per
+process from the system entropy source; Python: PyTorch's default). Pass
+`-r <seed>` to either implementation to make a run reproducible. Library users
+can call `set_seed()` (C++) or `torch.manual_seed()` (Python).
 
 ## Dependencies
 
@@ -81,7 +96,8 @@ outputs on the host.
 ## Tests
 
 An automated test suite (pytest) checks that every C++ engine builds and runs,
-that every Python engine runs, and that the two implementations agree:
+that every Python engine runs, that the reported uncertainties are meaningful,
+that seeded runs are reproducible, and that the two implementations agree:
 
 ```bash
 pip install pytest

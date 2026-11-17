@@ -10,7 +10,7 @@
 #   - 'library' builds a static library for linking (main() is excluded automatically)
 
 CXX = g++
-CXXFLAGS = -Wall -O
+CXXFLAGS = -Wall -O2
 AR = ar
 ARFLAGS = rcs
 LIBNAME = libengine_ising.a

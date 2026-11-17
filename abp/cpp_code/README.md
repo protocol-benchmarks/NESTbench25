@@ -38,7 +38,9 @@ the protocol and key parameters to be changed without recompiling
 ```bash
 ./sim -p <protocol_file>     # use a protocol from a file (default: built-in default protocol)
 ./sim -p input_control_parameters_learned.dat   # use the pre-learned protocol
-./sim -n 100000              # change the number of trajectories
+./sim -n 100000              # change the number of trajectories per sample
+./sim -s 10                  # number of independent samples (default 1; >1 gives an uncertainty estimate)
+./sim -r <seed>              # random-number seed, for a reproducible run
 ./sim -t <tf>                # change the trajectory time
 ./sim -b <c_i,c_f,...>       # change the protocol boundary values
 ./sim -v                     # generate movies/histograms instead (requires python + ffmpeg)
@@ -60,7 +62,8 @@ To use a custom protocol:
 
 The following functions are exposed in the library:
 
-- `final_answer()`: Calculates the order parameter over 10^6 trajectories
+- `final_answer()`: Calculates the order parameter over 10^6 trajectories (one sample by default; see `-s`)
+- `set_seed(seed)`: Fixes the random-number seed (by default the generator is seeded once from system entropy)
 - `load_protocol()`: Reads protocol from `input_control_parameters.dat`
 - `load_default_protocol()`: Loads the default protocol
 - `visualize_protocol()`: Generates visualizations of the current protocol

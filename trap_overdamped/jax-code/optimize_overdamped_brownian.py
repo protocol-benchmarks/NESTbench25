@@ -45,15 +45,15 @@ key, split = random.split(key)
 #gamma is defaulted to 1
 #thus diffusion constant D is D = 1./(beta*gamma*mass) #s^(-1) = kT = 1.0
 
-init_position = 5. #particle initial position
-r0_init = 5.
-r0_final = 10.
+init_position = 0. #particle initial position (at the initial trap center)
+r0_init = 0. #initial trap center, lambda(0)=0
+r0_final = 5. #final trap center, lambda(t_f)=5
 trap_stiffness = 1.
 Neq=100 # number of steps to equilibrate for. 
 
 energy_fn = utils.Vspring(box_size, trap_stiffness)
-displacement_fn, shift_fn = space.periodic(box_size)
-init_schedule = jnp.linspace(5., 10., 8) # start with a linear protocol
+displacement_fn, shift_fn = space.free() #open boundaries: the trap moves from 0 to 5, as in the problem statement
+init_schedule = jnp.linspace(r0_init, r0_final, 8) # start with a linear protocol
 
 
 summaries = []

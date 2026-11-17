@@ -563,7 +563,12 @@ if __name__ == "__main__":
                         help="protocol duration t_f (default 0.5 x 2 pi/omega_0); the quiescent period is unchanged")
     parser.add_argument("-b", "--boundary", default=None, metavar="c0_i,c0_f,c1_i,c1_f",
                         help="initial,final values of the two potential parameters")
+    parser.add_argument("-r", "--seed", type=int, default=None,
+                        help="random-number seed, for reproducible runs (default: unseeded)")
     args = parser.parse_args()
+
+    if args.seed is not None:
+        torch.manual_seed(args.seed)  # seeds the CPU and all CUDA generators
 
     if args.trajectory_time:
         set_trajectory_time(args.trajectory_time)

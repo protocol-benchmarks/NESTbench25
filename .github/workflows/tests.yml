@@ -1,0 +1,21 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quick-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Python dependencies (CPU-only PyTorch)
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple torch
+          pip install numpy matplotlib pytest
+      - name: Run the quick test suite (builds every C++ engine)
+        run: pytest tests/ -v
