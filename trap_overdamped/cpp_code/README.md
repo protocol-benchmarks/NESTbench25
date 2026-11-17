@@ -4,6 +4,7 @@
 - `engine_trap_overdamped.h`: Header file for using the engine as a library
 - `ga_process.cpp`: Implements a single member of a genetic population for protocol optimization
 - `ga.cpp`: Runs the genetic algorithm for protocol learning
+- `ga.sh`: Example SLURM script that launches the genetic-algorithm driver (`./ga`)
 - `Makefile`: Compilation instructions
 - `movie.py`: Python script for visualization
 - `input_control_parameters_learned.dat`: A pre-learned protocol
@@ -15,8 +16,8 @@ The user can specify the time-dependent protocol $\lambda(t)$ via the external f
 To run the engine as a standalone code, compile with `make standalone` and run
 `./sim` (no source modification is needed; `make library` automatically excludes
 `main()`). Run `./sim -h` for command-line options: the protocol (`-p <file>`),
-trajectory time (`-t`), boundary values (`-b`), and number of trajectories (`-n`)
-can all be set without recompiling. Results are written to `report_answer.dat`.
+trajectory time (`-t`), boundary values (`-b`), number of trajectories (`-n`),
+number of samples (`-s`), and random-number seed (`-r`) can all be set without recompiling. Results are written to `report_answer.dat`.
 To build the genetic-algorithm driver and worker, run `make ga`; SLURM settings
 for the generated job scripts are read from the environment variables
 `NESTBENCH_SLURM_PARTITION`, `NESTBENCH_SLURM_ACCOUNT`, `NESTBENCH_SLURM_QOS`,

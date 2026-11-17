@@ -91,6 +91,20 @@ static double** position_time = nullptr;
 static double picture_update_time=trajectory_time/(1.0*number_of_pictures);
 
 //functions void
+//random-number seeding: the generator is seeded exactly once per process, on first use,
+//from the system entropy source -- or from a user-supplied seed (set_seed(), or -r on the
+//command line) for reproducible runs. It is never re-seeded between samples, so successive
+//calls to calculate_order_parameter() are statistically independent.
+static int q_seeded=0;
+void set_seed(unsigned long long seed){rng_engine.seed(static_cast<uint64_t>(seed));q_seeded=1;}
+static void ensure_seeded(void){
+if(q_seeded){return;}
+std::random_device rd;
+uint64_t s=(static_cast<uint64_t>(rd())<<32)^static_cast<uint64_t>(rd())^static_cast<uint64_t>(time(NULL));
+rng_engine.seed(s);
+q_seeded=1;
+}
+
 static void initialize(void) __attribute__((unused)); //only called from main(); unused in library builds
 void equilibrate(void);
 void final_answer(void); //100 instances of the order parameter calculated using 10^4 trajectories
@@ -121,8 +135,8 @@ snprintf(st,sizeof(st),"rm report_*.dat");
 cout << st << endl;
 system(st);
 
-//seed RN generator
-rng_engine.seed(static_cast<uint64_t>(time(NULL)));
+//seed RN generator (once per process; see ensure_seeded)
+ensure_seeded();
 
 }
 
@@ -185,9 +199,11 @@ static void usage(const char *prog){
 fprintf(stderr,"usage: %s [options]\n",prog);
 fprintf(stderr,"  -p default|<file>  protocol: built-in default, or read from file (default: default)\n");
 fprintf(stderr,"  -n <n_traj>        trajectories per sample in final_answer (default: 1000000)\n");
+fprintf(stderr,"  -s <n_samples>     number of samples in final_answer (default: 1; use >1 for an uncertainty estimate)\n");
 fprintf(stderr,"  -t <tf>            trajectory time (default: engine default)\n");
 fprintf(stderr,"  -b <c_i,c_f,...>   initial,final values of each control parameter\n");
 fprintf(stderr,"  -m <mixing>        weight of <W> relative to Delta in the order parameter (default: 0.001)\n");
+fprintf(stderr,"  -r <seed>          random-number seed, for reproducible runs (default: seeded from system entropy)\n");
 fprintf(stderr,"  -v                 make movies/histograms instead of computing final answer\n");
 fprintf(stderr,"results are written to report_answer.dat\n");
 }
@@ -199,13 +215,15 @@ long n_traj=0,n_samples=0;
 int q_visualize=0;
 int c;
 
-while((c=getopt(argc,argv,"p:n:t:b:m:vh"))!=-1){
+while((c=getopt(argc,argv,"p:n:s:t:b:m:r:vh"))!=-1){
 switch(c){
 case 'p': if(strcmp(optarg,"default")!=0){protocol_file=optarg;} break;
 case 'n': n_traj=atol(optarg); break;
+case 's': n_samples=atol(optarg); break;
 case 't': set_trajectory_time(atof(optarg)); break;
 case 'b': set_boundary_conditions(optarg); break;
 case 'm': set_work_mixing(atof(optarg)); break;
+case 'r': set_seed(strtoull(optarg,NULL,10)); break;
 case 'v': q_visualize=1; break;
 case 'h': usage(argv[0]); return 0;
 default: usage(argv[0]); return 1;
@@ -348,6 +366,8 @@ output_trajectory_data();
 
 void run_trajectory(void){
 
+ensure_seeded();
+
 double e1,e2,u_init;
 
 equilibrate();
@@ -425,8 +445,8 @@ in.close();
 
 double calculate_order_parameter(int n_traj){
 
-//seed RN generator
-rng_engine.seed(static_cast<uint64_t>(time(NULL)));
+//seed RN generator (once per process; see ensure_seeded)
+ensure_seeded();
 
 int i;
 std::vector<double> r_values(n_traj);
@@ -462,8 +482,31 @@ ofstream out1(st,ios::out);
 
 long n_traj = (fa_n_traj_override>0) ? fa_n_traj_override : 1000000;
 
-double op=calculate_order_parameter(n_traj);
-out1 << " order parameter = " << op << endl;
+long n_samples = (fa_n_samples_override>0) ? fa_n_samples_override : 1;
+
+int i;
+double op;
+double op_local=0.0;
+double op2_local=0.0;
+
+double av,var;
+
+for(i=0;i<n_samples;i++){
+
+op=calculate_order_parameter(n_traj);
+
+op_local+=op;
+op2_local+=op*op;
+
+//running mean and unbiased sample variance; uncertainty is the standard error of the mean
+av=op_local/(i+1.0);
+var=op2_local/(i+1.0)-av*av;
+if(i==0 || var<0.0){var=0.0;}
+else{var*=(i+1.0)/(1.0*i);}
+
+out1 << "order parameter = " << av << " ± " << sqrt(var/(i+1.0)) << ", n_samples = " << i+1 << endl;
+
+}
 
 }
 

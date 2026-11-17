@@ -62,6 +62,20 @@ def parse_order_parameter(report: Path) -> float:
     return float(m.group(1))
 
 
+def parse_report(report: Path):
+    """Return (value, uncertainty, n_samples) from the last line of report_answer.dat."""
+    last = report.read_text().strip().splitlines()[-1]
+    m = re.search(r"order parameter\s*=\s*(\S+)\s*±\s*(\S+),\s*n_samples\s*=\s*(\d+)", last)
+    assert m, f"could not parse value ± uncertainty from: {last!r}"
+    return float(m.group(1)), float(m.group(2)), int(m.group(3))
+
+
+def build_sim(cwd):
+    if not (cwd / "sim").exists():
+        r = run(["make", "standalone"], cwd)
+        assert r.returncode == 0, r.stderr
+
+
 def run(cmd, cwd, timeout=1200):
     return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True,
                           timeout=timeout, env={**os.environ, "KMP_DUPLICATE_LIB_OK": "TRUE"})
@@ -147,6 +161,96 @@ def test_cpp_abp_visualization_does_not_crash():
     assert "Segmentation fault" not in r.stderr
 
 
+def test_cpp_underdamped_velocity_histogram_scale(tmp_path):
+    """Regression test: the velocity histogram was written in nm/microsecond
+    (thermal width ~0.007) but plotted on an axis spanning -25..25, so the movie
+    showed a single spike at zero. It is now written in units of the thermal
+    velocity, where the initial (equilibrium) distribution has unit variance."""
+    cwd = ROOT / "trap_underdamped" / "cpp_code"
+    build_sim(cwd)
+    # stub out the movie step so that the histogram files are kept and no
+    # plotting dependencies are needed
+    stub = tmp_path / "python"
+    stub.write_text("#!/bin/sh\nexit 0\n")
+    stub.chmod(0o755)
+    env = {**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}"}
+    r = subprocess.run(["./sim", "-v", "-p", "input_control_parameters_learned.dat"], cwd=cwd,
+                       capture_output=True, text=True, timeout=3600, env=env)
+    assert r.returncode == 0, r.stderr[-500:]
+    rows = [tuple(map(float, line.split()))
+            for line in (cwd / "report_velocity_time_0.dat").read_text().splitlines()]
+    for f in cwd.glob("report_*_time_*.dat"):
+        f.unlink()
+    v = [row[0] for row in rows]
+    p = [row[1] for row in rows]
+    norm = sum(p)
+    mean = sum(vi * pi for vi, pi in zip(v, p)) / norm
+    std = (sum((vi - mean) ** 2 * pi for vi, pi in zip(v, p)) / norm) ** 0.5
+    assert 0.8 < std < 1.2, f"initial velocity distribution should have unit width; got {std}"
+    assert 0.3 < max(p) < 0.5, f"peak height should be ~0.4; got {max(p)}"
+    movie = (cwd / "movie.py").read_text()
+    assert "ax_v.set_xlim(-10, 10)" in movie
+
+
+# ----------------------------------------------------------------------
+# C++ uncertainties and seeding
+# ----------------------------------------------------------------------
+# small runs with several samples: (arguments, minimum plausible standard error)
+UNCERTAINTY = {
+    "trap_overdamped":  (["-n", "200", "-s", "8"], 1e-3),
+    "trap_underdamped": (["-n", "200", "-s", "8"], 1e-3),
+    "erasure":          (["-n", "200", "-s", "8"], 1e-4),
+    "ising":            (["-n", "10",  "-s", "6"], 1e-2),
+    "abp":              (["-n", "2000", "-s", "8"], 1e-6),
+}
+
+
+@pytest.mark.parametrize("problem", PROBLEMS)
+def test_cpp_uncertainty_is_meaningful(problem):
+    """Regression test: the engines used to re-seed from the wall clock for every
+    sample, so samples taken within the same second were bit-identical and the
+    reported uncertainty was ~0 or nan."""
+    cwd = ROOT / problem / "cpp_code"
+    build_sim(cwd)
+    args, min_err = UNCERTAINTY[problem]
+    r = run(["./sim"] + args, cwd)
+    assert r.returncode == 0, r.stderr
+    value, err, n_samples = parse_report(cwd / "report_answer.dat")
+    assert n_samples == int(args[-1])
+    assert err == err, "uncertainty is NaN"
+    assert err > min_err, (
+        f"{problem}: uncertainty {err} is implausibly small; samples are not independent")
+    assert err < abs(value) + 1.0, f"{problem}: uncertainty {err} is implausibly large"
+
+
+@pytest.mark.parametrize("problem", PROBLEMS)
+def test_cpp_seed_is_reproducible(problem):
+    """-r <seed> gives identical output; different seeds give different output."""
+    cwd = ROOT / problem / "cpp_code"
+    build_sim(cwd)
+    args = UNCERTAINTY[problem][0]
+    outputs = []
+    for seed in ("11", "11", "12"):
+        r = run(["./sim", "-r", seed] + args, cwd)
+        assert r.returncode == 0, r.stderr
+        outputs.append((cwd / "report_answer.dat").read_text())
+    assert outputs[0] == outputs[1], "same seed gave different results"
+    assert outputs[0] != outputs[2], "different seeds gave identical results"
+
+
+# ----------------------------------------------------------------------
+# Data files shared by the C++ and Python implementations
+# ----------------------------------------------------------------------
+@pytest.mark.parametrize("problem", PROBLEMS)
+def test_shared_data_files_identical(problem):
+    cpp, py = ROOT / problem / "cpp_code", ROOT / problem / "python_code"
+    for f in sorted(py.glob("*.dat")):
+        if f.name.startswith("report_") or not (cpp / f.name).exists():
+            continue
+        assert f.read_bytes() == (cpp / f.name).read_bytes(), (
+            f"{f.relative_to(ROOT)} differs from the copy in cpp_code")
+
+
 # ----------------------------------------------------------------------
 # Python engines
 # ----------------------------------------------------------------------
@@ -171,6 +275,21 @@ def test_python_abp_learned_protocol():
     # work extraction (<W> ~ -2.96) pulls the order parameter well below the
     # default-protocol value of ~0.009
     assert op < 0.005, f"learned-protocol order parameter should be ~0 or negative: {op}"
+
+
+@pytest.mark.skipif(not has_torch(), reason="torch not installed")
+@pytest.mark.parametrize("problem", PROBLEMS)
+def test_python_seed_is_reproducible(problem):
+    """-r <seed> gives identical output; different seeds give different output."""
+    cwd = ROOT / problem / "python_code"
+    args = PY_QUICK[problem][0]
+    outputs = []
+    for seed in ("11", "11", "12"):
+        r = run([sys.executable, f"engine_{problem}.py", "-r", seed] + args, cwd)
+        assert r.returncode == 0, r.stderr[-2000:]
+        outputs.append((cwd / "report_answer.dat").read_text())
+    assert outputs[0] == outputs[1], "same seed gave different results"
+    assert outputs[0] != outputs[2], "different seeds gave identical results"
 
 
 # ----------------------------------------------------------------------

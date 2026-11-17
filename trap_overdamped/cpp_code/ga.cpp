@@ -50,7 +50,7 @@ bool q_file_exist(const char *fileName);
 int main(void){
 
 //seed RN generator
-rng_engine.seed(static_cast<uint64_t>(time(NULL)));
+{std::random_device rd; rng_engine.seed((static_cast<uint64_t>(rd())<<32)^static_cast<uint64_t>(rd())^static_cast<uint64_t>(time(NULL)));}
 
 //setup
 setup();

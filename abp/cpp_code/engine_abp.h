@@ -7,7 +7,7 @@ extern "C" {
 
 //functions exposed from engine_abp.c.
 
-void final_answer(void); //100 instances of the order parameter calculated using 10^4 trajectories
+void final_answer(void); //order parameter calculated using 10^6 trajectories (1 sample by default; see final_answer_n)
 void load_protocol(void);//reads input_control_parameters.dat
 void output_protocol(void);
 void visualize_protocol(void); //visualize the effect of the current protocol
@@ -21,6 +21,7 @@ void load_protocol_from(const char *filename); //reads protocol from a user-spec
 void set_trajectory_time(double tf); //set trajectory time; derived intervals are recomputed
 void set_boundary_conditions(const char *spec); //comma-separated list c0_i,c0_f,c1_i,c1_f,...
 void final_answer_n(long n_traj,long n_samples); //final_answer with user-specified sampling (0 = engine default)
+void set_seed(unsigned long long seed); //fix the random-number seed (reproducible runs); by default the generator is seeded once from system entropy
 void set_work_mixing(double m); //weight of <W> relative to Delta in the order parameter
 
 #ifdef __cplusplus

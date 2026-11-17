@@ -31,7 +31,7 @@ The order parameter to be minimized is the mean work required to perform many in
 
 ## Optimal Protocol
 
-The optimal protocol for this problem is known analytically and is given by:
+The optimal protocol for this problem is known analytically (Gomez-Marin, Schmiedl, and Seifert, 2008) and is given by:
 
 $$\lambda^*(t) = \lambda(t_f)\frac{Q\omega_0 t + 1}{Q\omega_0 t_f + 2} + \Lambda[\delta(t) - \delta(t-t_f)]$$
 
@@ -45,10 +45,14 @@ $$W^* = \frac{k\lambda(t_f)^2}{2 + Q\omega_0 t_f} \approx 2.90787$$
 
 in units of $k_B T$.
 
+Reference: A. Gomez-Marin, T. Schmiedl, and U. Seifert, "Optimal protocols for minimal work processes in underdamped stochastic thermodynamics", J. Chem. Phys. 129, 024114 (2008).
+
 
 ## Velocity distribution
 
 Because the dynamics is underdamped, the velocity is an essential degree of
 freedom. The visualization mode of both implementations (`./sim -v` or
 `python engine_trap_underdamped.py -v`) records and displays the evolution of
-the velocity distribution alongside the position distribution.
+the velocity distribution alongside the position distribution. In the C++
+movie the velocity is shown in units of the thermal velocity
+$\sigma_0\omega_0$, in which the equilibrium distribution has unit variance.

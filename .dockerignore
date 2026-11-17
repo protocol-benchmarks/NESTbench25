@@ -8,7 +8,6 @@ __pycache__
 sim
 ga
 ga_process
-deschamps
 report_*
 output_figure*.pdf
 output_movie*.mp4

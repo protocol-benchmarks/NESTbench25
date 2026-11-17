@@ -33,8 +33,8 @@ The key simulation parameters are defined near the top of `optimize_overdamped_b
 | `dt` | `1e-3` | Integration time step |
 | `batch_size` | `5000` | Trajectories per gradient estimate |
 | `opt_steps` | `100` | Number of Adam optimization steps |
-| `r0_init` | `5.0` | Initial trap center position |
-| `r0_final` | `10.0` | Final trap center position |
+| `r0_init` | `0.0` | Initial trap center position |
+| `r0_final` | `5.0` | Final trap center position |
 | `trap_stiffness` | `1.0` | Harmonic trap spring constant |
 | `savedir` | `'./'` | Directory for saved output files |
 

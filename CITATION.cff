@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the paper below."
+title: "NESTbench25"
+type: software
+repository-code: "https://github.com/protocol-benchmarks/NESTbench25"
+authors:
+  - family-names: Whitelam
+    given-names: Stephen
+  - family-names: Casert
+    given-names: Corneel
+  - family-names: Engel
+    given-names: Megan
+  - family-names: Tamblyn
+    given-names: Isaac
+preferred-citation:
+  type: article
+  title: "Benchmark control problems in nonequilibrium statistical mechanics"
+  authors:
+    - family-names: Whitelam
+      given-names: Stephen
+    - family-names: Casert
+      given-names: Corneel
+    - family-names: Engel
+      given-names: Megan
+    - family-names: Tamblyn
+      given-names: Isaac
+  year: 2025
+  doi: "10.48550/arXiv.2506.15122"
+  url: "https://arxiv.org/abs/2506.15122"

@@ -4,7 +4,6 @@ report_*
 sim
 ga
 ga_process
-deschamps
 __pycache__/
 *.pyc
 .pytest_cache/
